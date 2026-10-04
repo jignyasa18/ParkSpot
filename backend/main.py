@@ -24,13 +24,6 @@ class PricingRuleRequest(BaseModel):
 
 class SlotStatusRequest(BaseModel):
     status: str
-class BookingRequest(BaseModel):
-    user_id: int
-    vehicle_id: int
-    slot_id: int
-    start_time: str
-    end_time: str
-
 
 class PaymentRequest(BaseModel):
     booking_id: int
@@ -47,6 +40,18 @@ class RatingRequest(BaseModel):
     booking_id: int
     rating: int
     review: str | None = None
+
+
+class BookingStatusRequest(BaseModel):
+    status: str
+
+
+class BookingRequest(BaseModel):
+    user_id: int
+    vehicle_id: int
+    slot_id: int
+    start_time: str
+    end_time: str
 
 class ParkingRequest(BaseModel):
     location_name: str
@@ -257,7 +262,10 @@ def create_booking(
     db: Session = Depends(get_db)
 ):
 
-    # Check slot
+    # -----------------------------------------------------
+    #  Check slot
+    # -----------------------------------------------------
+
     slot = db.execute(
         text("""
             SELECT
@@ -281,11 +289,16 @@ def create_booking(
             detail="Parking slot not found"
         )
 
+    # -----------------------------------------------------
     # Check user
+    # -----------------------------------------------------
+
     user = db.execute(
         text("""
             SELECT user_id
+
             FROM users
+
             WHERE user_id = :user_id
         """),
         {
@@ -300,7 +313,10 @@ def create_booking(
             detail="User not found"
         )
 
-    # Check vehicle
+    # -----------------------------------------------------
+    #  Check vehicle
+    # -----------------------------------------------------
+
     vehicle = db.execute(
         text("""
             SELECT vehicle_id
@@ -323,15 +339,40 @@ def create_booking(
             detail="Vehicle not found for this user"
         )
 
-    # Check time
-    if booking.start_time >= booking.end_time:
+    # -----------------------------------------------------
+    # Validate booking time
+    # -----------------------------------------------------
+
+    try:
+
+        start_datetime = datetime.strptime(
+            booking.start_time,
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        end_datetime = datetime.strptime(
+            booking.end_time,
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+    except ValueError:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date/time format. Use YYYY-MM-DD HH:MM:SS"
+        )
+
+    if start_datetime >= end_datetime:
 
         raise HTTPException(
             status_code=400,
             detail="End time must be after start time"
         )
 
-    # Check overlapping booking
+    # -----------------------------------------------------
+    #  Check overlapping booking
+    # -----------------------------------------------------
+
     conflict = db.execute(
         text("""
             SELECT booking_id
@@ -363,7 +404,10 @@ def create_booking(
             detail="This parking slot is already booked for the selected time."
         )
 
-    # Get parking price
+    # -----------------------------------------------------
+    #  Get parking price
+    # -----------------------------------------------------
+
     parking = db.execute(
         text("""
             SELECT
@@ -390,7 +434,10 @@ def create_booking(
             detail="Parking location not found or inactive"
         )
 
-    # Calculate duration
+    # -----------------------------------------------------
+    #  Calculate duration
+    # -----------------------------------------------------
+
     duration_result = db.execute(
         text("""
             SELECT TIMESTAMPDIFF(
@@ -405,16 +452,29 @@ def create_booking(
         }
     ).scalar()
 
+    if duration_result is None or duration_result <= 0:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid booking duration"
+        )
+
     duration_hours = duration_result / 60
 
-    # Calculate amount
+    # -----------------------------------------------------
+    #  Calculate amount
+    # -----------------------------------------------------
+
     total_amount = round(
         duration_hours *
         float(parking["base_price"]),
         2
     )
 
-    # Insert booking
+    # -----------------------------------------------------
+    #  Insert booking
+    # -----------------------------------------------------
+
     result = db.execute(
         text("""
             INSERT INTO bookings
@@ -453,6 +513,10 @@ def create_booking(
 
     booking_id = result.lastrowid
 
+    # -----------------------------------------------------
+    #  Return booking details
+    # -----------------------------------------------------
+
     return {
         "message": "Booking created successfully!",
         "booking_id": booking_id,
@@ -464,8 +528,6 @@ def create_booking(
         "total_amount": total_amount,
         "status": "CONFIRMED"
     }
-
-
 # =========================================================
 # 7. USER BOOKING HISTORY
 # =========================================================
@@ -531,7 +593,10 @@ def create_payment(
     db: Session = Depends(get_db)
 ):
 
+    # -----------------------------------------------------
     # Check booking
+    # -----------------------------------------------------
+
     booking = db.execute(
         text("""
             SELECT
@@ -555,10 +620,42 @@ def create_payment(
             detail="Booking not found"
         )
 
-    # Check existing payment
+    # -----------------------------------------------------
+    #  Check booking status
+    # -----------------------------------------------------
+
+    booking_status = booking["booking_status"]
+
+    if booking_status == "CANCELLED":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment cannot be made for a cancelled booking"
+        )
+
+    if booking_status == "COMPLETED":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Booking is already completed"
+        )
+
+    if booking_status != "CONFIRMED":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment is allowed only for confirmed bookings"
+        )
+
+    # -----------------------------------------------------
+    #  Check existing payment
+    # -----------------------------------------------------
+
     existing_payment = db.execute(
         text("""
-            SELECT payment_id
+            SELECT
+                payment_id,
+                payment_status
 
             FROM payments
 
@@ -567,7 +664,7 @@ def create_payment(
         {
             "booking_id": payment.booking_id
         }
-    ).first()
+    ).mappings().first()
 
     if existing_payment:
 
@@ -576,7 +673,10 @@ def create_payment(
             detail="Payment already exists for this booking"
         )
 
-    # Validate payment method
+    # -----------------------------------------------------
+    #  Validate payment method
+    # -----------------------------------------------------
+
     allowed_methods = [
         "UPI",
         "CARD",
@@ -584,7 +684,11 @@ def create_payment(
         "CASH"
     ]
 
-    payment_method = payment.payment_method.strip().upper()
+    payment_method = (
+        payment.payment_method
+        .strip()
+        .upper()
+    )
 
     if payment_method not in allowed_methods:
 
@@ -593,12 +697,18 @@ def create_payment(
             detail="Invalid payment method"
         )
 
-    # Generate transaction reference
+    # -----------------------------------------------------
+    #  Generate transaction reference
+    # -----------------------------------------------------
+
     transaction_reference = (
         f"PARKSPOT_TXN_{payment.booking_id}"
     )
 
-    # Insert payment
+    # -----------------------------------------------------
+    #  Insert payment
+    # -----------------------------------------------------
+
     db.execute(
         text("""
             INSERT INTO payments
@@ -631,6 +741,10 @@ def create_payment(
 
     db.commit()
 
+    # -----------------------------------------------------
+    # Return payment details
+    # -----------------------------------------------------
+
     return {
         "message": "Payment successful!",
         "booking_id": payment.booking_id,
@@ -650,6 +764,35 @@ def get_user_payments(
     user_id: int,
     db: Session = Depends(get_db)
 ):
+
+    # -----------------------------------------------------
+    #  Check user
+    # -----------------------------------------------------
+
+    user = db.execute(
+        text("""
+            SELECT
+                user_id
+
+            FROM users
+
+            WHERE user_id = :user_id
+        """),
+        {
+            "user_id": user_id
+        }
+    ).first()
+
+    if not user:
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    # -----------------------------------------------------
+    # Get payment history
+    # -----------------------------------------------------
 
     result = db.execute(
         text("""
@@ -686,12 +829,15 @@ def get_user_payments(
 
     payments = result.mappings().all()
 
+    # -----------------------------------------------------
+    #  Return payment history
+    # -----------------------------------------------------
+
     return {
         "user_id": user_id,
         "count": len(payments),
-        "payments": payments
+        "payments": [dict(payment) for payment in payments]
     }
-
 
 # =========================================================
 # 10. CANCEL BOOKING
@@ -703,7 +849,10 @@ def cancel_booking(
     db: Session = Depends(get_db)
 ):
 
+    # -----------------------------------------------------
     # Check booking
+    # -----------------------------------------------------
+
     booking = db.execute(
         text("""
             SELECT
@@ -726,32 +875,21 @@ def cancel_booking(
             detail="Booking not found"
         )
 
-    # Check status
-    if booking["booking_status"] in (
-        "CANCELLED",
-        "COMPLETED"
-    ):
+    # -----------------------------------------------------
+    #  Check booking status
+    # -----------------------------------------------------
+
+    if booking["booking_status"] != "CONFIRMED":
 
         raise HTTPException(
             status_code=400,
-            detail="This booking cannot be cancelled"
+            detail="Only confirmed bookings can be cancelled"
         )
 
-    # Cancel booking
-    db.execute(
-        text("""
-            UPDATE bookings
+    # -----------------------------------------------------
+    #  Check payment
+    # -----------------------------------------------------
 
-            SET booking_status = 'CANCELLED'
-
-            WHERE booking_id = :booking_id
-        """),
-        {
-            "booking_id": booking_id
-        }
-    )
-
-    # Check payment
     payment = db.execute(
         text("""
             SELECT
@@ -767,7 +905,28 @@ def cancel_booking(
         }
     ).mappings().first()
 
-    # Refund payment
+    # -----------------------------------------------------
+    #  Cancel booking
+    # -----------------------------------------------------
+
+    db.execute(
+        text("""
+            UPDATE bookings
+
+            SET booking_status = 'CANCELLED'
+
+            WHERE booking_id = :booking_id
+              AND booking_status = 'CONFIRMED'
+        """),
+        {
+            "booking_id": booking_id
+        }
+    )
+
+    # -----------------------------------------------------
+    # Handle payment refund
+    # -----------------------------------------------------
+
     if payment and payment["payment_status"] == "SUCCESS":
 
         db.execute(
@@ -777,6 +936,7 @@ def cancel_booking(
                 SET payment_status = 'REFUNDED'
 
                 WHERE payment_id = :payment_id
+                  AND payment_status = 'SUCCESS'
             """),
             {
                 "payment_id": payment["payment_id"]
@@ -785,11 +945,27 @@ def cancel_booking(
 
         refund_status = "REFUNDED"
 
+    elif payment and payment["payment_status"] == "REFUNDED":
+
+        refund_status = "ALREADY_REFUNDED"
+
+    elif payment:
+
+        refund_status = payment["payment_status"]
+
     else:
 
         refund_status = "NO_PAYMENT"
 
+    # -----------------------------------------------------
+    # Save changes
+    # -----------------------------------------------------
+
     db.commit()
+
+    # -----------------------------------------------------
+    #  Return cancellation details
+    # -----------------------------------------------------
 
     return {
         "message": "Booking cancelled successfully!",
@@ -797,7 +973,6 @@ def cancel_booking(
         "booking_status": "CANCELLED",
         "payment_status": refund_status
     }
-
 
 # =========================================================
 # 11. ADD VEHICLE
@@ -928,6 +1103,18 @@ def get_user_vehicles(
     db: Session = Depends(get_db)
 ):
 
+    user = db.execute(
+        text("""
+            SELECT user_id
+            FROM users
+            WHERE user_id = :user_id
+        """),
+        {"user_id": user_id}
+    ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     result = db.execute(
         text("""
             SELECT
@@ -993,7 +1180,6 @@ def delete_vehicle(
             SELECT booking_id
             FROM bookings
             WHERE vehicle_id = :vehicle_id
-              AND booking_status NOT IN ('CANCELLED', 'COMPLETED')
             LIMIT 1
         """),
         {
@@ -1005,7 +1191,7 @@ def delete_vehicle(
 
         raise HTTPException(
             status_code=409,
-            detail="Vehicle cannot be deleted because it has an active booking"
+            detail="Vehicle cannot be deleted because it is linked to a booking"
         )
 
     # Delete vehicle
@@ -1184,6 +1370,14 @@ def get_parking_ratings(
     db: Session = Depends(get_db)
 ):
 
+    location = db.execute(
+        text("""SELECT location_id FROM parking_locations WHERE location_id = :location_id"""),
+        {"location_id": location_id}
+    ).first()
+
+    if not location:
+        raise HTTPException(status_code=404, detail="Parking location not found")
+
     result = db.execute(
         text("""
             SELECT
@@ -1219,6 +1413,19 @@ def add_parking_location(
     parking: ParkingRequest,
     db: Session = Depends(get_db)
 ):
+
+    # Validate required fields
+    if not parking.location_name or not parking.location_name.strip():
+        raise HTTPException(status_code=400, detail="Location name is required")
+
+    if not parking.address or not parking.address.strip():
+        raise HTTPException(status_code=400, detail="Address is required")
+
+    if parking.latitude is not None and not -90 <= parking.latitude <= 90:
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+
+    if parking.longitude is not None and not -180 <= parking.longitude <= 180:
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
 
     # Validate capacity
     if parking.capacity <= 0:
@@ -1317,6 +1524,12 @@ def approve_parking_location(
             detail="Parking location is already active"
         )
 
+    if parking["status"] != "PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail="Only pending parking locations can be approved"
+        )
+
     # Approve parking
     db.execute(
         text("""
@@ -1372,6 +1585,27 @@ def add_parking_slot(
             status_code=400,
             detail="Parking location is not active"
         )
+
+    slot_count = db.execute(
+        text("""
+            SELECT COUNT(*)
+            FROM parking_slots
+            WHERE location_id = :location_id
+        """),
+        {"location_id": location_id}
+    ).scalar() or 0
+
+    capacity = db.execute(
+        text("""
+            SELECT capacity
+            FROM parking_locations
+            WHERE location_id = :location_id
+        """),
+        {"location_id": location_id}
+    ).scalar()
+
+    if slot_count >= capacity:
+        raise HTTPException(status_code=409, detail="Parking slot capacity has been reached")
 
     # Clean input
     slot_number = slot.slot_number.strip().upper()
@@ -1496,6 +1730,25 @@ def update_slot_status(
             detail="Parking slot not found"
         )
 
+    if status in {"MAINTENANCE", "OCCUPIED"}:
+        active_booking = db.execute(
+            text("""
+                SELECT booking_id
+                FROM bookings
+                WHERE slot_id = :slot_id
+                  AND booking_status IN ('CONFIRMED', 'ACTIVE')
+                  AND end_time > NOW()
+                LIMIT 1
+            """),
+            {"slot_id": slot_id}
+        ).first()
+
+        if active_booking:
+            raise HTTPException(
+                status_code=409,
+                detail="Slot has an active booking and cannot be changed to this status"
+            )
+
     # Update status
     db.execute(
         text("""
@@ -1542,21 +1795,21 @@ def search_parking(
 
                 COUNT(ps.slot_id) AS total_slots,
 
-                SUM(
+                COALESCE(SUM(
                     CASE
                         WHEN ps.status = 'AVAILABLE'
                         THEN 1
                         ELSE 0
                     END
-                ) AS available_slots,
+                ), 0) AS available_slots,
 
-                SUM(
+                COALESCE(SUM(
                     CASE
                         WHEN ps.status = 'OCCUPIED'
                         THEN 1
                         ELSE 0
                     END
-                ) AS occupied_slots
+                ), 0) AS occupied_slots
 
             FROM parking_locations pl
 
@@ -1597,11 +1850,14 @@ def nearby_parking(
     db: Session = Depends(get_db)
 ):
 
-    if radius_km <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Radius must be greater than 0"
-        )
+    if not -90 <= latitude <= 90:
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+
+    if not -180 <= longitude <= 180:
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
+
+    if radius_km <= 0 or radius_km > 100:
+        raise HTTPException(status_code=400, detail="Radius must be between 0 and 100 km")
 
     result = db.execute(
         text("""
@@ -1694,6 +1950,9 @@ def get_parkscore(
     longitude: float,
     db: Session = Depends(get_db)
 ):
+
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        raise HTTPException(status_code=400, detail="Invalid latitude or longitude")
 
     result = db.execute(
         text("""
@@ -1947,10 +2206,11 @@ def get_arrival_insight(
             detail="Parking location not found"
         )
 
-    # Extract hour from arrival time
+    # Validate and extract hour from arrival time
     try:
-        hour = int(arrival_time.split(":")[0])
-    except:
+        parsed_arrival = datetime.strptime(arrival_time, "%H:%M")
+        hour = parsed_arrival.hour
+    except ValueError:
         raise HTTPException(
             status_code=400,
             detail="Invalid arrival_time. Use HH:MM format."
@@ -2011,6 +2271,12 @@ def parkspot_pick(
     arrival_time: str,
     db: Session = Depends(get_db)
 ):
+
+    if not -90 <= latitude <= 90:
+        raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
+
+    if not -180 <= longitude <= 180:
+        raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
 
     # Validate arrival time
     try:
@@ -3094,9 +3360,24 @@ def manager_update_booking_status(
     }
 
     if status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Invalid booking status")
+
+    current_status = booking["booking_status"]
+
+    valid_transitions = {
+        "CONFIRMED": {"ACTIVE", "CANCELLED"},
+        "ACTIVE": {"COMPLETED", "CANCELLED"},
+        "COMPLETED": set(),
+        "CANCELLED": set()
+    }
+
+    if status == current_status:
+        raise HTTPException(status_code=400, detail="Booking is already in this status")
+
+    if status not in valid_transitions.get(current_status, set()):
         raise HTTPException(
             status_code=400,
-            detail="Invalid booking status"
+            detail=f"Invalid booking status transition: {current_status} to {status}"
         )
 
     # Update booking status
@@ -3112,11 +3393,41 @@ def manager_update_booking_status(
         }
     )
 
+    refund_status = "NO_REFUND"
+
+    if status == "CANCELLED":
+        payment = db.execute(
+            text("""
+                SELECT payment_id, payment_status
+                FROM payments
+                WHERE booking_id = :booking_id
+            """),
+            {"booking_id": booking_id}
+        ).mappings().first()
+
+        if payment and payment["payment_status"] == "SUCCESS":
+            db.execute(
+                text("""
+                    UPDATE payments
+                    SET payment_status = 'REFUNDED'
+                    WHERE payment_id = :payment_id
+                """),
+                {"payment_id": payment["payment_id"]}
+            )
+            refund_status = "REFUNDED"
+        elif payment and payment["payment_status"] == "REFUNDED":
+            refund_status = "ALREADY_REFUNDED"
+        elif payment:
+            refund_status = payment["payment_status"]
+        else:
+            refund_status = "NO_PAYMENT"
+
     db.commit()
 
     return {
         "message": "Booking status updated successfully!",
         "booking_id": booking_id,
         "old_status": booking["booking_status"],
-        "new_status": status
+        "new_status": status,
+        "payment_status": refund_status
     }
