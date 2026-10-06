@@ -4,17 +4,91 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from database import get_db
 from datetime import datetime
+from passlib.context import CryptContext
 
 app = FastAPI(
     title="ParkSpot API",
     description="Parking Management System Backend",
     version="1.0.0"
 )
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Change to your actual domain layout later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
+# Security Configurations
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is not configured")
+
+ALGORITHM = "HS256"
+
+# Password security
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+
+def verify_password(
+    plain_password: str,
+    hashed_password: str
+):
+    return pwd_context.verify(
+        plain_password,
+        hashed_password
+    )
+from datetime import datetime, timedelta
+import jwt
+
+
+def create_access_token(data: dict, expires_minutes: int = 60):
+    to_encode = data.copy()
+
+    expire = datetime.utcnow() + timedelta(
+        minutes=expires_minutes
+    )
+
+    to_encode.update({
+        "exp": expire
+    })
+
+    return jwt.encode(
+        to_encode,
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
 # =========================================================
 # REQUEST MODELS
 # =========================================================
+from pydantic import EmailStr
+
+class UserRegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    phone: str | None = None
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 class PricingRuleRequest(BaseModel):
     location_id: int
     day_of_week: str
@@ -69,6 +143,151 @@ class SlotRequest(BaseModel):
 class ArrivalInsightRequest(BaseModel):
     arrival_time: str
 
+# =========================================================
+# USER REGISTRATION
+# =========================================================
+@app.post("/register")
+def register_user(
+    user_data: UserRegisterRequest, 
+    db: Session = Depends(get_db)
+):
+    # Check if the email is already registered
+    existing_user = db.execute(
+        text("SELECT user_id FROM users WHERE email = :email"),
+        {"email": user_data.email}
+    ).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email is already registered")
+
+    # Hash the password
+    hashed_pwd = hash_password(user_data.password)
+
+    # Insert new user into the database
+    db.execute(
+        text("""
+            INSERT INTO users (name, email, password_hash, phone, created_at)
+            VALUES (:name, :email, :password_hash, :phone, :created_at)
+        """),
+        {
+            "name": user_data.name,
+            "email": user_data.email,
+            "password_hash": hashed_pwd,
+            "phone": user_data.phone,
+            "created_at": datetime.utcnow()
+        }
+    )
+    db.commit()
+
+    return {"message": "User registered successfully!"}
+
+
+
+@app.post("/login")
+def login_user(
+    credentials: UserLoginRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.execute(
+        text("""
+            SELECT
+                user_id,
+                role_id,
+                name,
+                email,
+                password_hash,
+                account_status
+            FROM users
+            WHERE email = :email
+        """),
+        {"email": credentials.email}
+    ).mappings().first()
+
+    if not user or not verify_password(
+        credentials.password,
+        user["password_hash"]
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    if user["account_status"] == "INACTIVE":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account is inactive. Please contact support."
+        )
+
+    if user["account_status"] == "BLOCKED":
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been blocked. Please contact support."
+        )
+
+    access_token = create_access_token(
+        data={
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "role_id": user["role_id"]
+        }
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "user_id": user["user_id"],
+            "role_id": user["role_id"],
+            "name": user["name"],
+            "email": user["email"],
+            "account_status": user["account_status"]
+        }
+    }
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        user_id = payload.get("user_id")
+        email = payload.get("email")
+        role_id = payload.get("role_id")
+
+        if not user_id or not email or not role_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication token"
+            )
+
+        return {
+            "user_id": user_id,
+            "email": email,
+            "role_id": role_id
+        }
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication token has expired"
+        )
+
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token"
+        )
 # =========================================================
 # 1. HOME
 # =========================================================
@@ -535,8 +754,16 @@ def create_booking(
 @app.get("/users/{user_id}/bookings")
 def get_user_bookings(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
+    
+    if user_id != current_user["user_id"]:
+        raise HTTPException(
+
+            status_code=403,
+            detail="You can only access your own bookings"
+    )
 
     result = db.execute(
         text("""
@@ -3431,3 +3658,9 @@ def manager_update_booking_status(
         "new_status": status,
         "payment_status": refund_status
     }
+
+
+
+
+
+
