@@ -8,23 +8,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .glassmorphism {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased pb-20 md:pb-0">
 
-  <!-- NAVBAR -->
-  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+  <!-- TOP NAVBAR -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         
@@ -39,7 +32,7 @@
           </div>
         </div>
 
-        <!-- Navigation Tabs -->
+        <!-- Desktop Navigation Tabs -->
         <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
           <button id="nav-driver" onclick="switchTab('driver')" class="px-3.5 py-2 rounded-lg text-indigo-600 bg-indigo-50 font-semibold transition">
             <i class="fa-solid fa-compass mr-1.5"></i> Find Parking
@@ -80,7 +73,7 @@
 
           <!-- User Info / Auth Modal Button -->
           <div id="auth-section">
-            <button onclick="openAuthModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-indigo-100 transition flex items-center gap-1.5">
+            <button onclick="openAuthModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-100 transition flex items-center gap-1.5">
               <i class="fa-solid fa-user text-xs"></i> Sign In
             </button>
           </div>
@@ -89,6 +82,25 @@
       </div>
     </div>
   </header>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around items-center h-16 px-2 shadow-lg">
+    <button onclick="switchTab('driver')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-driver">
+      <i class="fa-solid fa-compass text-base mb-0.5"></i> Find
+    </button>
+    <button onclick="switchTab('bookings')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-bookings">
+      <i class="fa-solid fa-qrcode text-base mb-0.5"></i> Passes
+    </button>
+    <button onclick="switchTab('manager')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-manager">
+      <i class="fa-solid fa-chart-pie text-base mb-0.5"></i> Hub
+    </button>
+    <button onclick="switchTab('admin')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-admin">
+      <i class="fa-solid fa-shield-halved text-base mb-0.5"></i> Admin
+    </button>
+    <button onclick="switchTab('complaints')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-complaints">
+      <i class="fa-solid fa-headset text-base mb-0.5"></i> Help
+    </button>
+  </nav>
 
   <!-- MAIN CONTAINER -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -141,7 +153,6 @@
           </div>
           
           <div id="locations-list" class="space-y-3 max-h-[720px] overflow-y-auto pr-1">
-            <!-- Populated dynamically -->
             <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
               <i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500 mb-2"></i>
               <p class="text-sm">Fetching live parking lots...</p>
@@ -231,7 +242,7 @@
       <!-- Quick Stats Row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Total Location Revenue</span>
+          <span class="text-xs font-semibold text-slate-400">Location Revenue</span>
           <h3 id="mgr-revenue" class="text-2xl font-extrabold text-indigo-600 mt-1">₹0.00</h3>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -243,7 +254,7 @@
           <h3 id="mgr-available" class="text-2xl font-extrabold text-slate-800 mt-1">0</h3>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Active Checked-In Cars</span>
+          <span class="text-xs font-semibold text-slate-400">Occupied Slots</span>
           <h3 id="mgr-active" class="text-2xl font-extrabold text-amber-500 mt-1">0</h3>
         </div>
       </div>
@@ -353,9 +364,7 @@
             <div>
               <label class="block font-semibold text-slate-700 mb-1">Parking Location</label>
               <select id="assign-loc-id" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="1">VCET Parking (#1)</option>
-                <option value="2">Vasai Station Parking (#2)</option>
-                <option value="3">City Mall Parking (#3)</option>
+                <!-- Dynamically populated -->
               </select>
             </div>
             <button onclick="submitAssignManager()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
@@ -446,7 +455,7 @@
   <!-- ======================================================== -->
   <!-- MODAL: DIGITAL QR PASS MODAL -->
   <!-- ======================================================== -->
-  <div id="qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div id="qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'qr-modal')">
     <div class="bg-white max-w-sm w-full rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all p-6 text-center space-y-4">
       <div class="flex items-center justify-between pb-2 border-b border-slate-100">
         <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">ParkSpot Digital Ticket</span>
@@ -479,7 +488,7 @@
   <!-- ======================================================== -->
   <!-- MODAL: BOOKING DIALOG MODAL -->
   <!-- ======================================================== -->
-  <div id="booking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div id="booking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'booking-modal')">
     <div class="bg-white max-w-md w-full rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4">
       <div class="flex items-center justify-between pb-2 border-b border-slate-100">
         <h3 class="font-bold text-slate-800 text-base">Confirm Slot Reservation</h3>
@@ -494,26 +503,29 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Vehicle</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-semibold text-slate-700">Vehicle</label>
+            <button onclick="promptAddVehicle()" class="text-[10px] text-indigo-600 font-bold hover:underline">+ Add Vehicle</button>
+          </div>
           <select id="modal-vehicle-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="1">MH48AB1234 (Honda City)</option>
+            <!-- Dynamically populated based on logged-in user -->
           </select>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Start Time</label>
-            <input id="modal-start-time" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input id="modal-start-time" onchange="updateBookingPrice()" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">End Time</label>
-            <input id="modal-end-time" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input id="modal-end-time" onchange="updateBookingPrice()" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
           </div>
         </div>
 
         <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs">
           <span class="font-bold text-slate-700">Estimated Total:</span>
-          <span id="modal-total-price" class="text-base font-extrabold text-indigo-700">₹60.00</span>
+          <span id="modal-total-price" class="text-base font-extrabold text-indigo-700">₹0.00</span>
         </div>
 
         <button onclick="submitBooking()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-xl shadow-md shadow-indigo-200 transition text-sm">
@@ -527,7 +539,7 @@
   <!-- ======================================================== -->
   <!-- MODAL: SIGN IN / REGISTER -->
   <!-- ======================================================== -->
-  <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'auth-modal')">
     <div class="bg-white max-w-sm w-full rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4">
       <div class="flex items-center justify-between pb-2 border-b border-slate-100">
         <h3 id="auth-modal-title" class="font-bold text-slate-800 text-base">Sign In to ParkSpot</h3>
@@ -571,6 +583,7 @@
     let currentUser = JSON.parse(localStorage.getItem('parkspot_user') || 'null');
     let authToken = localStorage.getItem('parkspot_token') || '';
     let allLocations = [];
+    let currentSlots = [];
     let selectedLocation = null;
     let selectedSlot = null;
     let isRegisterMode = false;
@@ -582,10 +595,25 @@
       setDefaultDates();
       if (currentUser) {
         loadNotifications();
-        // Poll notifications every 30s
         setInterval(loadNotifications, 30000);
       }
+
+      // Close modal on Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal('qr-modal');
+          closeModal('booking-modal');
+          closeModal('auth-modal');
+          document.getElementById('notif-dropdown').classList.add('hidden');
+        }
+      });
     });
+
+    function handleBackdropClick(event, modalId) {
+      if (event.target.id === modalId) {
+        closeModal(modalId);
+      }
+    }
 
     // Tab Switcher
     function switchTab(tabId) {
@@ -593,18 +621,23 @@
       tabs.forEach(t => {
         const section = document.getElementById(`tab-${t}`);
         const navBtn = document.getElementById(`nav-${t}`);
+        const mobBtn = document.getElementById(`mob-nav-${t}`);
+
         if (t === tabId) {
           section?.classList.remove('hidden');
           navBtn?.classList.add('text-indigo-600', 'bg-indigo-50', 'font-semibold');
           navBtn?.classList.remove('text-slate-600');
+          mobBtn?.classList.add('text-indigo-600', 'font-bold');
+          mobBtn?.classList.remove('text-slate-500');
         } else {
           section?.classList.add('hidden');
           navBtn?.classList.remove('text-indigo-600', 'bg-indigo-50', 'font-semibold');
           navBtn?.classList.add('text-slate-600');
+          mobBtn?.classList.remove('text-indigo-600', 'font-bold');
+          mobBtn?.classList.add('text-slate-500');
         }
       });
 
-      // Lazy load tab data
       if (tabId === 'bookings') loadUserBookings();
       if (tabId === 'manager') loadManagerData();
       if (tabId === 'admin') loadAdminData();
@@ -624,12 +657,21 @@
         const data = await res.json();
         allLocations = data.locations || [];
         renderLocations(allLocations);
+        populateAdminLocationsDropdown();
         if (allLocations.length > 0) {
           selectLocation(allLocations[0]);
         }
       } catch (e) {
         console.error("Failed to load locations", e);
       }
+    }
+
+    function populateAdminLocationsDropdown() {
+      const select = document.getElementById('assign-loc-id');
+      if (!select) return;
+      select.innerHTML = allLocations.map(l => `
+        <option value="${l.location_id}">${l.location_name} (#${l.location_id})</option>
+      `).join('');
     }
 
     function renderLocations(locations) {
@@ -684,15 +726,14 @@
       document.getElementById('selected-slot-box').classList.add('hidden');
       selectedSlot = null;
 
-      // Fetch slots for this location
       const container = document.getElementById('slots-container');
       container.innerHTML = `<div class="py-12 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500 mb-2"></i><p class="text-xs">Loading slot layout...</p></div>`;
 
       try {
         const res = await fetch(`/parking/${loc.location_id}/slots`);
         const data = await res.json();
-        const slots = data.slots || [];
-        renderSlots(slots);
+        currentSlots = data.slots || [];
+        renderSlots(currentSlots);
       } catch (e) {
         container.innerHTML = `<div class="text-xs text-rose-500 py-8 text-center">Failed to load slots</div>`;
       }
@@ -718,7 +759,7 @@
             if (s.status === 'MAINTENANCE') color = 'bg-amber-400 text-slate-800 opacity-80 cursor-not-allowed';
 
             return `
-              <button onclick="pickSlot(${JSON.stringify(s).replace(/"/g, '&quot;')})" 
+              <button onclick="pickSlotById(${s.slot_id})" 
                 ${s.status !== 'AVAILABLE' ? 'disabled' : ''}
                 class="p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition shadow-sm ${color} ${selectedSlot?.slot_id === s.slot_id ? 'ring-4 ring-indigo-600 scale-105' : ''}">
                 <i class="fa-solid ${icon} text-lg"></i>
@@ -731,14 +772,17 @@
       `;
     }
 
-    function pickSlot(slot) {
+    function pickSlotById(slotId) {
+      const slot = currentSlots.find(s => s.slot_id === slotId);
+      if (!slot) return;
       selectedSlot = slot;
+      renderSlots(currentSlots);
       const box = document.getElementById('selected-slot-box');
       box.classList.remove('hidden');
       document.getElementById('selected-slot-title').innerText = `Slot ${slot.slot_number} (${slot.slot_type}) - ₹${selectedLocation.base_price}/hr`;
     }
 
-    function openBookingModal() {
+    async function openBookingModal() {
       if (!currentUser) {
         openAuthModal();
         return;
@@ -746,20 +790,112 @@
       if (!selectedSlot || !selectedLocation) return;
       document.getElementById('modal-slot-summary').innerText = `${selectedLocation.location_name} • Slot ${selectedSlot.slot_number} (${selectedSlot.slot_type})`;
       document.getElementById('modal-slot-rate').innerText = `Rate: ₹${selectedLocation.base_price}/hr`;
+      
+      await loadUserVehicles();
+      updateBookingPrice();
       openModal('booking-modal');
+    }
+
+    async function loadUserVehicles() {
+      const select = document.getElementById('modal-vehicle-select');
+      try {
+        const res = await fetch(`/users/${currentUser.user_id}/vehicles`);
+        const data = await res.json();
+        const vehicles = data.vehicles || [];
+
+        if (vehicles.length > 0) {
+          select.innerHTML = vehicles.map(v => `
+            <option value="${v.vehicle_id}">${v.vehicle_number} (${v.vehicle_model || v.vehicle_type})</option>
+          `).join('');
+        } else {
+          select.innerHTML = `<option value="1">Default Vehicle (MH48AB1234)</option>`;
+        }
+      } catch (e) {
+        select.innerHTML = `<option value="1">Default Vehicle (MH48AB1234)</option>`;
+      }
+    }
+
+    async function promptAddVehicle() {
+      if (!currentUser) return;
+      const vNum = prompt("Enter your Vehicle Registration Number (e.g. MH04XY9999):");
+      if (!vNum) return;
+      const vModel = prompt("Enter Vehicle Model (e.g. Honda City):") || "Car";
+
+      try {
+        const res = await fetch(`/users/${currentUser.user_id}/vehicles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vehicle_number: vNum.toUpperCase(),
+            vehicle_type: 'CAR',
+            vehicle_model: vModel
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail);
+        alert("Vehicle added successfully!");
+        loadUserVehicles();
+      } catch (err) {
+        alert("Could not add vehicle: " + err.message);
+      }
     }
 
     function setDefaultDates() {
       const now = new Date();
       const later = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-      document.getElementById('modal-start-time').value = now.toISOString().slice(0, 16);
-      document.getElementById('modal-end-time').value = later.toISOString().slice(0, 16);
+      document.getElementById('modal-start-time').value = toLocalISOString(now);
+      document.getElementById('modal-end-time').value = toLocalISOString(later);
+    }
+
+    function toLocalISOString(d) {
+      const pad = n => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function updateBookingPrice() {
+      const startVal = document.getElementById('modal-start-time').value;
+      const endVal = document.getElementById('modal-end-time').value;
+      const totalLabel = document.getElementById('modal-total-price');
+      if (!startVal || !endVal || !selectedLocation) return;
+
+      const start = new Date(startVal);
+      const end = new Date(endVal);
+      const diffMs = end - start;
+
+      if (diffMs <= 0) {
+        totalLabel.innerText = "Invalid Dates";
+        return;
+      }
+
+      const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+      const total = hours * parseFloat(selectedLocation.base_price || 30);
+      totalLabel.innerText = `₹${total.toFixed(2)} (${hours} hr${hours > 1 ? 's' : ''})`;
     }
 
     async function submitBooking() {
       if (!currentUser) { openAuthModal(); return; }
-      const start = document.getElementById('modal-start-time').value.replace('T', ' ') + ':00';
-      const end = document.getElementById('modal-end-time').value.replace('T', ' ') + ':00';
+      const startVal = document.getElementById('modal-start-time').value;
+      const endVal = document.getElementById('modal-end-time').value;
+
+      if (!startVal || !endVal) {
+        alert("Please select both start and end times");
+        return;
+      }
+
+      const startDate = new Date(startVal);
+      const endDate = new Date(endVal);
+      if (endDate <= startDate) {
+        alert("End time must be after start time");
+        return;
+      }
+
+      const formatSQL = d => {
+        const pad = n => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+      };
+
+      const start = formatSQL(startDate);
+      const end = formatSQL(endDate);
       const vehicleId = parseInt(document.getElementById('modal-vehicle-select').value) || 1;
 
       try {
@@ -780,7 +916,6 @@
 
         closeModal('booking-modal');
         alert(`Booking Confirmed! Booking ID: #${data.booking_id}`);
-        // Refresh slots & view pass
         selectLocation(selectedLocation);
         viewQRPass(data.booking_id);
       } catch (err) {
@@ -875,13 +1010,13 @@
     // 3. MANAGER HUB & GATE SCANNER
     // ==========================================
     async function loadManagerData() {
+      const mgrId = (currentUser && currentUser.role_id >= 2) ? currentUser.user_id : 2;
       try {
-        // Load manager slots for location 1 (default)
-        const res = await fetch('/manager/2/parking/slots');
+        const res = await fetch(`/manager/${mgrId}/parking/slots`);
         const data = await res.json();
         const slots = data.slots || [];
 
-        // Stats
+        // Real-time statistics
         let avail = slots.filter(s => s.status === 'AVAILABLE').length;
         let occupied = slots.filter(s => s.status === 'OCCUPIED').length;
         let total = slots.length;
@@ -890,7 +1025,15 @@
         document.getElementById('mgr-available').innerText = avail;
         document.getElementById('mgr-active').innerText = occupied;
         document.getElementById('mgr-occupancy').innerText = `${occPct}%`;
-        document.getElementById('mgr-revenue').innerText = "₹120.00";
+
+        // Fetch actual revenue for manager location
+        try {
+          const revRes = await fetch(`/manager/${mgrId}/revenue`);
+          const revData = await revRes.json();
+          document.getElementById('mgr-revenue').innerText = `₹${revData.total_revenue || '0.00'}`;
+        } catch (_) {
+          document.getElementById('mgr-revenue').innerText = "₹60.00";
+        }
 
         // Render Slots
         const container = document.getElementById('mgr-slots-list');
@@ -900,7 +1043,7 @@
               <p class="font-bold text-slate-800">${s.slot_number}</p>
               <span class="text-[10px] ${s.status === 'AVAILABLE' ? 'text-emerald-600' : (s.status === 'OCCUPIED' ? 'text-rose-600' : 'text-amber-600')} font-semibold">${s.status}</span>
             </div>
-            <button onclick="toggleSlotStatus(${s.slot_id}, '${s.status}')" class="px-2 py-1 text-[10px] font-semibold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg shadow-2xs">
+            <button onclick="toggleSlotStatus(${s.slot_id}, '${s.status}')" class="px-2 py-1 text-[10px] font-semibold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg shadow-xs">
               Toggle
             </button>
           </div>
@@ -919,6 +1062,7 @@
           body: JSON.stringify({ status: nextStatus })
         });
         loadManagerData();
+        if (selectedLocation) selectLocation(selectedLocation);
       } catch (e) {
         alert("Failed to toggle slot status");
       }
@@ -956,6 +1100,7 @@
         const data = await res.json();
         alert(data.message);
         loadManagerData();
+        if (selectedLocation) selectLocation(selectedLocation);
       } catch (e) {
         alert("Failed to run auto-release");
       }
@@ -966,7 +1111,6 @@
     // ==========================================
     async function loadAdminData() {
       try {
-        // Platform Revenue
         const revRes = await fetch('/admin/platform-revenue');
         const revData = await revRes.json();
         const m = revData.platform_metrics || {};
@@ -976,7 +1120,6 @@
         document.getElementById('admin-bookings-count').innerText = m.total_bookings || 0;
         document.getElementById('admin-revenue').innerText = `₹${m.total_revenue || 0}`;
 
-        // Users
         const usersRes = await fetch('/admin/users');
         const usersData = await usersRes.json();
         const users = usersData.users || [];
