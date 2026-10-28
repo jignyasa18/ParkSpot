@@ -1,21 +1,39 @@
+import os
+import sys
+from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+load_dotenv(BASE_DIR / ".env")
+load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from database import get_db
-from datetime import datetime
 from passlib.context import CryptContext
+import jwt
+
+try:
+    from database import get_db
+except ImportError:
+    from backend.database import get_db
 
 app = FastAPI(
     title="ParkSpot API",
     description="Parking Management System Backend",
     version="1.0.0"
 )
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Change to your actual domain layout later
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,16 +41,7 @@ app.add_middleware(
 
 
 # Security Configurations
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-
-if not SECRET_KEY:
-    raise RuntimeError("JWT_SECRET_KEY is not configured")
-
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-to-a-long-random-secret-key")
 ALGORITHM = "HS256"
 
 # Password security
@@ -50,18 +59,19 @@ def verify_password(
     plain_password: str,
     hashed_password: str
 ):
-    return pwd_context.verify(
-        plain_password,
-        hashed_password
-    )
-from datetime import datetime, timedelta
-import jwt
+    try:
+        return pwd_context.verify(
+            plain_password,
+            hashed_password
+        )
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_minutes: int = 60):
     to_encode = data.copy()
 
-    expire = datetime.utcnow() + timedelta(
+    expire = datetime.now(timezone.utc) + timedelta(
         minutes=expires_minutes
     )
 
@@ -74,6 +84,7 @@ def create_access_token(data: dict, expires_minutes: int = 60):
         SECRET_KEY,
         algorithm=ALGORITHM
     )
+
 # =========================================================
 # REQUEST MODELS
 # =========================================================
@@ -163,18 +174,25 @@ def register_user(
     # Hash the password
     hashed_pwd = hash_password(user_data.password)
 
+    # Get default role_id for regular USER (defaults to 1 if not found)
+    role = db.execute(
+        text("SELECT role_id FROM roles WHERE role_name = 'USER'")
+    ).first()
+    role_id = role[0] if role else 1
+
     # Insert new user into the database
     db.execute(
         text("""
-            INSERT INTO users (name, email, password_hash, phone, created_at)
-            VALUES (:name, :email, :password_hash, :phone, :created_at)
+            INSERT INTO users (role_id, name, email, password_hash, phone, created_at)
+            VALUES (:role_id, :name, :email, :password_hash, :phone, :created_at)
         """),
         {
+            "role_id": role_id,
             "name": user_data.name,
             "email": user_data.email,
             "password_hash": hashed_pwd,
             "phone": user_data.phone,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc)
         }
     )
     db.commit()
@@ -265,7 +283,7 @@ def get_current_user(
         email = payload.get("email")
         role_id = payload.get("role_id")
 
-        if not user_id or not email or not role_id:
+        if user_id is None or email is None or role_id is None:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid authentication token"
@@ -758,12 +776,11 @@ def get_user_bookings(
     current_user: dict = Depends(get_current_user)
 ):
     
-    if user_id != current_user["user_id"]:
+    if user_id != current_user["user_id"] and current_user.get("role_id") not in [2, 3]:
         raise HTTPException(
-
             status_code=403,
             detail="You can only access your own bookings"
-    )
+        )
 
     result = db.execute(
         text("""
@@ -3660,7 +3677,6 @@ def manager_update_booking_status(
     }
 
 
-
-
-
-
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, app_dir=str(BASE_DIR))
