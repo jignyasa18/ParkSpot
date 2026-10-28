@@ -1,8 +1,16 @@
 import os
 import sys
+import io
+import base64
+import json
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+import qrcode
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse
 
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
@@ -25,10 +33,31 @@ try:
 except ImportError:
     from backend.database import get_db
 
+async def background_slot_cleaner():
+    while True:
+        try:
+            await asyncio.sleep(60)
+            from database import SessionLocal
+            with SessionLocal() as db:
+                release_expired_bookings(db)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Error in background slot cleaner: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(background_slot_cleaner())
+    yield
+    task.cancel()
+
+
 app = FastAPI(
     title="ParkSpot API",
     description="Parking Management System Backend",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -88,6 +117,31 @@ def create_access_token(data: dict, expires_minutes: int = 60):
 # =========================================================
 # REQUEST MODELS
 # =========================================================
+class ComplaintCreateRequest(BaseModel):
+    user_id: int
+    booking_id: int | None = None
+    subject: str
+    description: str
+
+class ComplaintStatusUpdateRequest(BaseModel):
+    status: str
+
+class NotificationCreateRequest(BaseModel):
+    user_id: int
+    title: str
+    message: str
+
+class AdminUserStatusRequest(BaseModel):
+    account_status: str
+
+class AdminAssignManagerRequest(BaseModel):
+    user_id: int
+    location_id: int
+
+class ScanQRRequest(BaseModel):
+    booking_id: int
+    action: str = "AUTO"
+
 from pydantic import EmailStr
 
 class UserRegisterRequest(BaseModel):
@@ -155,6 +209,80 @@ class ArrivalInsightRequest(BaseModel):
     arrival_time: str
 
 # =========================================================
+
+# =========================================================
+# HELPER UTILITIES: NOTIFICATIONS, QR PASS & AUTO-RELEASE
+# =========================================================
+
+def create_notification(db: Session, user_id: int, title: str, message: str):
+    try:
+        db.execute(
+            text("""
+                INSERT INTO notifications (user_id, title, message, is_read, created_at)
+                VALUES (:user_id, :title, :message, FALSE, :created_at)
+            """),
+            {
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "created_at": datetime.now(timezone.utc)
+            }
+        )
+        db.commit()
+    except Exception as e:
+        print(f"Failed to create notification: {e}")
+
+
+def generate_qr_code_base64(data: dict) -> str:
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=2,
+    )
+    qr.add_data(json.dumps(data, default=str))
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#0f172a", back_color="#ffffff")
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{img_str}"
+
+
+def release_expired_bookings(db: Session):
+    now = datetime.now(timezone.utc)
+    expired = db.execute(
+        text("""
+            SELECT booking_id, slot_id, user_id
+            FROM bookings
+            WHERE end_time <= :now
+              AND booking_status IN ('CONFIRMED', 'ACTIVE')
+        """),
+        {"now": now}
+    ).mappings().all()
+
+    released = 0
+    for b in expired:
+        db.execute(
+            text("UPDATE bookings SET booking_status = 'COMPLETED' WHERE booking_id = :b_id"),
+            {"b_id": b["booking_id"]}
+        )
+        db.execute(
+            text("UPDATE parking_slots SET status = 'AVAILABLE' WHERE slot_id = :s_id"),
+            {"s_id": b["slot_id"]}
+        )
+        create_notification(
+            db,
+            b["user_id"],
+            "Booking Completed",
+            f"Your booking #{b['booking_id']} has ended. Slot #{b['slot_id']} is now released."
+        )
+        released += 1
+
+    if released > 0:
+        db.commit()
+    return released
+
 # USER REGISTRATION
 # =========================================================
 @app.post("/register")
@@ -312,7 +440,9 @@ def get_current_user(
 
 @app.get("/")
 def home():
-
+    index_file = BASE_DIR.parent / "frontend" / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
     return {
         "message": "ParkSpot Backend is running!"
     }
@@ -3675,6 +3805,615 @@ def manager_update_booking_status(
         "new_status": status,
         "payment_status": refund_status
     }
+
+
+
+
+# =========================================================
+# 30. COMPLAINTS API
+# =========================================================
+
+@app.post("/complaints")
+def create_complaint(
+    payload: ComplaintCreateRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.execute(
+        text("SELECT user_id, name FROM users WHERE user_id = :user_id"),
+        {"user_id": payload.user_id}
+    ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.booking_id:
+        booking = db.execute(
+            text("SELECT booking_id FROM bookings WHERE booking_id = :b_id"),
+            {"b_id": payload.booking_id}
+        ).mappings().first()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+
+    res = db.execute(
+        text("""
+            INSERT INTO complaints (user_id, booking_id, subject, description, status, created_at)
+            VALUES (:user_id, :booking_id, :subject, :description, 'OPEN', :created_at)
+        """),
+        {
+            "user_id": payload.user_id,
+            "booking_id": payload.booking_id,
+            "subject": payload.subject,
+            "description": payload.description,
+            "created_at": datetime.now(timezone.utc)
+        }
+    )
+    db.commit()
+    complaint_id = res.lastrowid
+
+    create_notification(
+        db,
+        payload.user_id,
+        "Complaint Submitted",
+        f"Your complaint #{complaint_id} has been received. Our team will review it shortly."
+    )
+
+    return {
+        "message": "Complaint submitted successfully!",
+        "complaint_id": complaint_id,
+        "status": "OPEN"
+    }
+
+
+@app.get("/complaints")
+def list_complaints(
+    status: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = """
+        SELECT
+            c.complaint_id,
+            c.user_id,
+            u.name AS user_name,
+            u.email AS user_email,
+            c.booking_id,
+            c.subject,
+            c.description,
+            c.status,
+            c.created_at,
+            c.resolved_at
+        FROM complaints c
+        JOIN users u ON c.user_id = u.user_id
+    """
+    params = {}
+    if status:
+        query += " WHERE c.status = :status"
+        params["status"] = status
+    query += " ORDER BY c.created_at DESC"
+
+    complaints = db.execute(text(query), params).mappings().all()
+    return {
+        "count": len(complaints),
+        "complaints": complaints
+    }
+
+
+@app.get("/users/{user_id}/complaints")
+def get_user_complaints(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    complaints = db.execute(
+        text("""
+            SELECT
+                complaint_id,
+                booking_id,
+                subject,
+                description,
+                status,
+                created_at,
+                resolved_at
+            FROM complaints
+            WHERE user_id = :user_id
+            ORDER BY created_at DESC
+        """),
+        {"user_id": user_id}
+    ).mappings().all()
+
+    return {
+        "user_id": user_id,
+        "count": len(complaints),
+        "complaints": complaints
+    }
+
+
+@app.patch("/complaints/{complaint_id}/status")
+def update_complaint_status(
+    complaint_id: int,
+    payload: ComplaintStatusUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    valid_statuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]
+    status_upper = payload.status.upper()
+    if status_upper not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
+
+    complaint = db.execute(
+        text("SELECT complaint_id, user_id, status FROM complaints WHERE complaint_id = :c_id"),
+        {"c_id": complaint_id}
+    ).mappings().first()
+
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    resolved_at = datetime.now(timezone.utc) if status_upper in ["RESOLVED", "CLOSED"] else None
+
+    db.execute(
+        text("""
+            UPDATE complaints
+            SET status = :status,
+                resolved_at = :resolved_at
+            WHERE complaint_id = :c_id
+        """),
+        {
+            "status": status_upper,
+            "resolved_at": resolved_at,
+            "c_id": complaint_id
+        }
+    )
+    db.commit()
+
+    create_notification(
+        db,
+        complaint["user_id"],
+        f"Complaint #{complaint_id} Updated",
+        f"Your complaint status is now {status_upper}."
+    )
+
+    return {
+        "message": f"Complaint status updated to {status_upper}",
+        "complaint_id": complaint_id,
+        "old_status": complaint["status"],
+        "new_status": status_upper
+    }
+
+
+# =========================================================
+# 31. NOTIFICATIONS API
+# =========================================================
+
+@app.get("/users/{user_id}/notifications")
+def get_user_notifications(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    notifications = db.execute(
+        text("""
+            SELECT
+                notification_id,
+                title,
+                message,
+                is_read,
+                created_at
+            FROM notifications
+            WHERE user_id = :user_id
+            ORDER BY created_at DESC
+        """),
+        {"user_id": user_id}
+    ).mappings().all()
+
+    unread_count = sum(1 for n in notifications if not n["is_read"])
+
+    return {
+        "user_id": user_id,
+        "total_count": len(notifications),
+        "unread_count": unread_count,
+        "notifications": notifications
+    }
+
+
+@app.patch("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db)
+):
+    notif = db.execute(
+        text("SELECT notification_id FROM notifications WHERE notification_id = :n_id"),
+        {"n_id": notification_id}
+    ).first()
+
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    db.execute(
+        text("UPDATE notifications SET is_read = TRUE WHERE notification_id = :n_id"),
+        {"n_id": notification_id}
+    )
+    db.commit()
+
+    return {"message": "Notification marked as read", "notification_id": notification_id}
+
+
+@app.patch("/users/{user_id}/notifications/read-all")
+def mark_all_notifications_read(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    db.execute(
+        text("UPDATE notifications SET is_read = TRUE WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    db.commit()
+
+    return {"message": "All notifications marked as read", "user_id": user_id}
+
+
+# =========================================================
+# 32. ADMIN MANAGEMENT API
+# =========================================================
+
+@app.get("/admin/users")
+def admin_list_users(
+    db: Session = Depends(get_db)
+):
+    users = db.execute(
+        text("""
+            SELECT
+                u.user_id,
+                u.name,
+                u.email,
+                u.phone,
+                u.account_status,
+                u.role_id,
+                r.role_name,
+                u.created_at,
+                COUNT(DISTINCT v.vehicle_id) AS total_vehicles,
+                COUNT(DISTINCT b.booking_id) AS total_bookings
+            FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            LEFT JOIN vehicles v ON u.user_id = v.user_id
+            LEFT JOIN bookings b ON u.user_id = b.user_id
+            GROUP BY u.user_id, r.role_name
+            ORDER BY u.user_id ASC
+        """)
+    ).mappings().all()
+
+    return {
+        "count": len(users),
+        "users": users
+    }
+
+
+@app.patch("/admin/users/{user_id}/status")
+def admin_update_user_status(
+    user_id: int,
+    payload: AdminUserStatusRequest,
+    db: Session = Depends(get_db)
+):
+    valid = ["ACTIVE", "INACTIVE", "BLOCKED"]
+    status_upper = payload.account_status.upper()
+    if status_upper not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid}")
+
+    user = db.execute(
+        text("SELECT user_id, account_status FROM users WHERE user_id = :uid"),
+        {"uid": user_id}
+    ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.execute(
+        text("UPDATE users SET account_status = :status WHERE user_id = :uid"),
+        {"status": status_upper, "uid": user_id}
+    )
+    db.commit()
+
+    return {
+        "message": f"User status updated to {status_upper}",
+        "user_id": user_id,
+        "old_status": user["account_status"],
+        "new_status": status_upper
+    }
+
+
+@app.post("/admin/managers")
+def admin_assign_manager(
+    payload: AdminAssignManagerRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.execute(
+        text("SELECT user_id, name, role_id FROM users WHERE user_id = :uid"),
+        {"uid": payload.user_id}
+    ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    location = db.execute(
+        text("SELECT location_id, location_name FROM parking_locations WHERE location_id = :lid"),
+        {"lid": payload.location_id}
+    ).mappings().first()
+
+    if not location:
+        raise HTTPException(status_code=404, detail="Parking location not found")
+
+    # Update role to MANAGER (role_id 2) if not already
+    if user["role_id"] != 2:
+        db.execute(
+            text("UPDATE users SET role_id = 2 WHERE user_id = :uid"),
+            {"uid": payload.user_id}
+        )
+
+    # Check if already assigned
+    existing_mgr = db.execute(
+        text("SELECT manager_id FROM parking_managers WHERE user_id = :uid"),
+        {"uid": payload.user_id}
+    ).mappings().first()
+
+    if existing_mgr:
+        db.execute(
+            text("UPDATE parking_managers SET location_id = :lid WHERE user_id = :uid"),
+            {"lid": payload.location_id, "uid": payload.user_id}
+        )
+    else:
+        db.execute(
+            text("""
+                INSERT INTO parking_managers (user_id, location_id, assigned_at)
+                VALUES (:uid, :lid, :assigned_at)
+            """),
+            {"uid": payload.user_id, "lid": payload.location_id, "assigned_at": datetime.now(timezone.utc)}
+        )
+
+    db.commit()
+
+    create_notification(
+        db,
+        payload.user_id,
+        "Manager Assignment",
+        f"You have been assigned as Manager for {location['location_name']}."
+    )
+
+    return {
+        "message": f"User {user['name']} assigned as manager for {location['location_name']}",
+        "user_id": payload.user_id,
+        "location_id": payload.location_id
+    }
+
+
+@app.get("/admin/platform-revenue")
+def admin_platform_revenue(
+    db: Session = Depends(get_db)
+):
+    total_revenue = db.execute(
+        text("SELECT COALESCE(SUM(amount), 0.00) FROM payments WHERE payment_status = 'SUCCESS'")
+    ).scalar()
+
+    total_users = db.execute(text("SELECT COUNT(*) FROM users")).scalar()
+    total_locations = db.execute(text("SELECT COUNT(*) FROM parking_locations WHERE status = 'ACTIVE'")).scalar()
+    total_slots = db.execute(text("SELECT COUNT(*) FROM parking_slots")).scalar()
+    total_bookings = db.execute(text("SELECT COUNT(*) FROM bookings")).scalar()
+
+    location_breakdown = db.execute(
+        text("""
+            SELECT
+                pl.location_id,
+                pl.location_name,
+                COUNT(DISTINCT b.booking_id) AS bookings_count,
+                COALESCE(SUM(p.amount), 0.00) AS revenue
+            FROM parking_locations pl
+            JOIN parking_slots ps ON pl.location_id = ps.location_id
+            JOIN bookings b ON ps.slot_id = b.slot_id
+            LEFT JOIN payments p ON b.booking_id = p.booking_id AND p.payment_status = 'SUCCESS'
+            GROUP BY pl.location_id, pl.location_name
+            ORDER BY revenue DESC
+        """)
+    ).mappings().all()
+
+    return {
+        "platform_metrics": {
+            "total_revenue": total_revenue,
+            "total_users": total_users,
+            "active_locations": total_locations,
+            "total_slots": total_slots,
+            "total_bookings": total_bookings
+        },
+        "location_breakdown": location_breakdown
+    }
+
+
+# =========================================================
+# 33. QR CODE ENTRY & EXIT PASS SYSTEM
+# =========================================================
+
+@app.get("/bookings/{booking_id}/qr-pass")
+def get_booking_qr_pass(
+    booking_id: int,
+    db: Session = Depends(get_db)
+):
+    booking = db.execute(
+        text("""
+            SELECT
+                b.booking_id,
+                b.user_id,
+                u.name AS user_name,
+                u.email AS user_email,
+                u.phone AS user_phone,
+                v.vehicle_number,
+                v.vehicle_type,
+                ps.slot_number,
+                ps.slot_type,
+                pl.location_id,
+                pl.location_name,
+                pl.address,
+                b.start_time,
+                b.end_time,
+                b.booking_status,
+                b.total_amount
+            FROM bookings b
+            JOIN users u ON b.user_id = u.user_id
+            JOIN vehicles v ON b.vehicle_id = v.vehicle_id
+            JOIN parking_slots ps ON b.slot_id = ps.slot_id
+            JOIN parking_locations pl ON ps.location_id = pl.location_id
+            WHERE b.booking_id = :b_id
+        """),
+        {"b_id": booking_id}
+    ).mappings().first()
+
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    # Generate QR Code with verifiable payload
+    qr_data = {
+        "pass_type": "PARKSPOT_DIGITAL_TICKET",
+        "booking_id": booking["booking_id"],
+        "user_id": booking["user_id"],
+        "vehicle_number": booking["vehicle_number"],
+        "slot_number": booking["slot_number"],
+        "location_id": booking["location_id"],
+        "start_time": booking["start_time"],
+        "end_time": booking["end_time"],
+        "status": booking["booking_status"]
+    }
+
+    qr_image_base64 = generate_qr_code_base64(qr_data)
+
+    return {
+        "booking": booking,
+        "qr_code_base64": qr_image_base64
+    }
+
+
+@app.post("/manager/scan-qr")
+def scan_qr_gate_pass(
+    payload: ScanQRRequest,
+    db: Session = Depends(get_db)
+):
+    booking = db.execute(
+        text("""
+            SELECT
+                b.booking_id,
+                b.user_id,
+                b.slot_id,
+                b.booking_status,
+                ps.slot_number,
+                pl.location_name,
+                u.name AS user_name
+            FROM bookings b
+            JOIN parking_slots ps ON b.slot_id = ps.slot_id
+            JOIN parking_locations pl ON ps.location_id = pl.location_id
+            JOIN users u ON b.user_id = u.user_id
+            WHERE b.booking_id = :b_id
+        """),
+        {"b_id": payload.booking_id}
+    ).mappings().first()
+
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found for scanned QR code")
+
+    current_status = booking["booking_status"]
+    action = payload.action.upper()
+
+    # Determine Check-in vs Check-out
+    if action == "CHECK_IN" or (action == "AUTO" and current_status == "CONFIRMED"):
+        if current_status not in ["CONFIRMED", "PENDING"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot check-in booking in '{current_status}' status"
+            )
+
+        # Transition to ACTIVE, mark slot OCCUPIED
+        db.execute(
+            text("UPDATE bookings SET booking_status = 'ACTIVE' WHERE booking_id = :b_id"),
+            {"b_id": payload.booking_id}
+        )
+        db.execute(
+            text("UPDATE parking_slots SET status = 'OCCUPIED' WHERE slot_id = :s_id"),
+            {"s_id": booking["slot_id"]}
+        )
+        db.commit()
+
+        create_notification(
+            db,
+            booking["user_id"],
+            "Gate Check-In Verified 🚗",
+            f"Welcome to {booking['location_name']}! You have checked in to Slot {booking['slot_number']}."
+        )
+
+        return {
+            "status": "CHECKED_IN",
+            "message": f"Check-in verified for {booking['user_name']}. Gate opened!",
+            "booking_id": payload.booking_id,
+            "slot_number": booking["slot_number"],
+            "location_name": booking["location_name"]
+        }
+
+    elif action == "CHECK_OUT" or (action == "AUTO" and current_status == "ACTIVE"):
+        if current_status != "ACTIVE":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot check-out booking in '{current_status}' status"
+            )
+
+        # Transition to COMPLETED, mark slot AVAILABLE
+        db.execute(
+            text("UPDATE bookings SET booking_status = 'COMPLETED' WHERE booking_id = :b_id"),
+            {"b_id": payload.booking_id}
+        )
+        db.execute(
+            text("UPDATE parking_slots SET status = 'AVAILABLE' WHERE slot_id = :s_id"),
+            {"s_id": booking["slot_id"]}
+        )
+        db.commit()
+
+        create_notification(
+            db,
+            booking["user_id"],
+            "Gate Check-Out Verified 👋",
+            f"Thank you for parking at {booking['location_name']}. Slot {booking['slot_number']} has been checked out."
+        )
+
+        return {
+            "status": "CHECKED_OUT",
+            "message": f"Check-out complete for {booking['user_name']}. Gate opened! Slot {booking['slot_number']} is now free.",
+            "booking_id": payload.booking_id,
+            "slot_number": booking["slot_number"],
+            "location_name": booking["location_name"]
+        }
+
+    elif current_status == "COMPLETED":
+        raise HTTPException(status_code=400, detail="This booking ticket has already been completed.")
+    elif current_status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="This booking ticket was cancelled.")
+    else:
+        raise HTTPException(status_code=400, detail=f"Unexpected booking status: {current_status}")
+
+
+# =========================================================
+# 34. AUTOMATIC EXPIRED SLOT RELEASE
+# =========================================================
+
+@app.post("/system/auto-release-slots")
+def trigger_auto_release_slots(
+    db: Session = Depends(get_db)
+):
+    released = release_expired_bookings(db)
+    return {
+        "message": f"Automatic slot cleanup finished. Released {released} expired slot(s).",
+        "released_count": released
+    }
+
+
+# =========================================================
+# 35. FRONTEND WEB INTERFACE MOUNT
+# =========================================================
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+
+@app.get("/app", include_in_schema=False)
+def serve_frontend_app():
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return HTMLResponse("<h1>ParkSpot Frontend is building...</h1>")
 
 
 if __name__ == "__main__":
