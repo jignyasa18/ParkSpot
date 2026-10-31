@@ -527,7 +527,8 @@ def get_parking(
 
     return {
         "count": len(parking),
-        "parking_locations": parking
+        "parking_locations": parking,
+        "locations": parking
     }
 
 

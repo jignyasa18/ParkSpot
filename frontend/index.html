@@ -1,1405 +1,608 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ParkSpot - Smart Parking System</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ParkSpot — Find your perfect parking spot.</title>
+<!-- React 18 & ReactDOM -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<!-- Babel with TypeScript & React Presets -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+<!-- Dedicated External CSS Stylesheet -->
+<link rel="stylesheet" href="styles.css"/>
+
+<!-- Exact Typography: Playfair Display + Plus Jakarta Sans + JetBrains Mono -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased pb-20 md:pb-0">
+<body>
+<div id="root"></div>
 
-  <!-- TOP NAVBAR -->
-  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        
-        <!-- Logo -->
-        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('driver')">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
-            <i class="fa-solid fa-square-parking text-xl"></i>
-          </div>
-          <div>
-            <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-700 bg-clip-text text-transparent">ParkSpot</span>
-            <span class="hidden sm:inline-block text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full ml-1.5 border border-indigo-100">Smart App</span>
-          </div>
+<!-- React.js Application Code -->
+<script type="text/babel">
+const { useState, useCallback, useMemo } = React;
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPESCRIPT DATA & STATE
+   ═══════════════════════════════════════════════════════════════ */
+const INITIAL_LOCATIONS = [
+  {
+    id: 1,
+    name: "Bandra Station Parking",
+    location: "Bandra (W), Mumbai",
+    distance: "0.8 km",
+    rate: 80,
+    rating: 4.6,
+    reviews: 1240,
+    available: true,
+    totalSpots: 48,
+    freeSpots: 18,
+    image: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=800&q=80",
+    coordinates: { x: 74, y: 35 },
+    description: "Multi-level covered basement parking with automated boom barrier entry and CCTV surveillance.",
+    slots: ["A01", "A02", "A03", "A04", "B01", "B02", "B03", "E01"]
+  },
+  {
+    id: 2,
+    name: "Linking Road Parking",
+    location: "Bandra (W), Mumbai",
+    distance: "1.2 km",
+    rate: 100,
+    rating: 4.4,
+    reviews: 860,
+    available: true,
+    totalSpots: 32,
+    freeSpots: 9,
+    image: "https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=800&q=80",
+    coordinates: { x: 88, y: 22 },
+    description: "Secure open tree-shaded parking bay ideal for shopping on Linking Road with dedicated valet staff.",
+    slots: ["L01", "L02", "L03", "L04", "L05", "E02"]
+  },
+  {
+    id: 3,
+    name: "Pali Hill Parking",
+    location: "Bandra (W), Mumbai",
+    distance: "1.5 km",
+    rate: 90,
+    rating: 4.5,
+    reviews: 980,
+    available: true,
+    totalSpots: 40,
+    freeSpots: 14,
+    image: "https://images.unsplash.com/photo-1573348722427-f1d6819fdf98?auto=format&fit=crop&w=800&q=80",
+    coordinates: { x: 65, y: 68 },
+    description: "Premium residential & dining parking with EV 50kW fast charger and 24/7 manned security.",
+    slots: ["P01", "P02", "P03", "P04", "E03"]
+  }
+];
+
+const INITIAL_BOOKINGS = [
+  {
+    id: "BK-9021",
+    locationName: "Bandra Station Parking",
+    slot: "A02",
+    date: "Today, Oct 31",
+    time: "10:00 AM - 12:00 PM",
+    hours: 2,
+    total: 160,
+    status: "ACTIVE",
+    qr: "PS-BANDRA-A02-9021"
+  }
+];
+
+function ToastContainer({ toasts, onDismiss }) {
+  return (
+    <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 max-w-sm pointer-events-none">
+      {toasts.map(t => (
+        <div key={t.id} className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-[#E8E1D5] shadow-xl text-xs text-[#1A1815] animate-fade-up">
+          <i className={`fa-solid ${t.type === "success" ? "fa-circle-check text-green-700" : t.type === "error" ? "fa-circle-exclamation text-red-700" : "fa-circle-info text-[#1C3B37]"} text-sm`}></i>
+          <span className="flex-1 font-semibold">{t.message}</span>
+          <button onClick={() => onDismiss(t.id)} className="text-[#706A62] hover:text-[#1A1815]"><i className="fa-solid fa-xmark"></i></button>
         </div>
-
-        <!-- Desktop Navigation Tabs -->
-        <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
-          <button id="nav-driver" onclick="switchTab('driver')" class="px-3.5 py-2 rounded-lg text-indigo-600 bg-indigo-50 font-semibold transition">
-            <i class="fa-solid fa-compass mr-1.5"></i> Find Parking
-          </button>
-          <button id="nav-bookings" onclick="switchTab('bookings')" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition">
-            <i class="fa-solid fa-qrcode mr-1.5"></i> My Passes
-          </button>
-          <button id="nav-manager" onclick="switchTab('manager')" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition">
-            <i class="fa-solid fa-chart-pie mr-1.5"></i> Manager Hub
-          </button>
-          <button id="nav-admin" onclick="switchTab('admin')" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition">
-            <i class="fa-solid fa-shield-halved mr-1.5"></i> Admin
-          </button>
-          <button id="nav-complaints" onclick="switchTab('complaints')" class="px-3.5 py-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 transition">
-            <i class="fa-solid fa-headset mr-1.5"></i> Help & Tickets
-          </button>
-        </nav>
-
-        <!-- Right Side: Notifications & User Session -->
-        <div class="flex items-center gap-3">
-          <!-- Notification Bell -->
-          <div class="relative">
-            <button onclick="toggleNotifications()" class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition relative">
-              <i class="fa-regular fa-bell text-lg"></i>
-              <span id="notif-badge" class="hidden absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white"></span>
-            </button>
-            <!-- Notification Dropdown -->
-            <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50">
-              <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
-                <h4 class="font-bold text-slate-800 text-sm">Notifications</h4>
-                <button onclick="markAllNotificationsRead()" class="text-xs text-indigo-600 hover:underline">Mark all read</button>
-              </div>
-              <div id="notif-list" class="max-h-72 overflow-y-auto space-y-2 text-xs">
-                <p class="text-slate-400 text-center py-4">No notifications yet</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- User Info / Auth Modal Button -->
-          <div id="auth-section">
-            <button onclick="openAuthModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-100 transition flex items-center gap-1.5">
-              <i class="fa-solid fa-user text-xs"></i> Sign In
-            </button>
-          </div>
-        </div>
-
-      </div>
+      ))}
     </div>
-  </header>
+  );
+}
 
-  <!-- MOBILE BOTTOM NAVIGATION BAR -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around items-center h-16 px-2 shadow-lg">
-    <button onclick="switchTab('driver')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-driver">
-      <i class="fa-solid fa-compass text-base mb-0.5"></i> Find
-    </button>
-    <button onclick="switchTab('bookings')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-bookings">
-      <i class="fa-solid fa-qrcode text-base mb-0.5"></i> Passes
-    </button>
-    <button onclick="switchTab('manager')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-manager">
-      <i class="fa-solid fa-chart-pie text-base mb-0.5"></i> Hub
-    </button>
-    <button onclick="switchTab('admin')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-admin">
-      <i class="fa-solid fa-shield-halved text-base mb-0.5"></i> Admin
-    </button>
-    <button onclick="switchTab('complaints')" class="flex flex-col items-center justify-center flex-1 text-slate-500 hover:text-indigo-600 text-[11px] font-medium" id="mob-nav-complaints">
-      <i class="fa-solid fa-headset text-base mb-0.5"></i> Help
-    </button>
-  </nav>
+function App() {
+  const [locations] = useState(INITIAL_LOCATIONS);
+  const [activePinId, setActivePinId] = useState(1);
+  const [wishlist, setWishlist] = useState({ 1: false, 2: false, 3: false });
+  const [toasts, setToasts] = useState([]);
+  
+  const [search, setSearch] = useState({
+    location: "Bandra, Mumbai",
+    date: "Oct 31, 2026",
+    time: "10:00 AM"
+  });
 
-  <!-- MAIN CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  const [bookingModalLocation, setBookingModalLocation] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState("A01");
+  const [durationHours, setDurationHours] = useState(2);
+  const [userBookings, setUserBookings] = useState(INITIAL_BOOKINGS);
+  const [passesModalOpen, setPassesModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
-    <!-- ======================================================== -->
-    <!-- TAB 1: DRIVER PORTAL - SEARCH & VISUAL PARKING MAP -->
-    <!-- ======================================================== -->
-    <section id="tab-driver" class="space-y-6">
-      
-      <!-- Hero Banner & Filter -->
-      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 shadow-xl">
-        <div class="relative z-10 max-w-2xl space-y-3">
-          <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-            <i class="fa-solid fa-bolt text-amber-400"></i> Real-time Slot Availability
-          </span>
-          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight">Find & Reserve Parking in Seconds</h1>
-          <p class="text-indigo-200 text-sm sm:text-base leading-relaxed">
-            Reserve smart parking slots, get digital QR entry passes, and avoid circling the block.
-          </p>
+  const addToast = useCallback((message, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+  }, []);
 
-          <!-- Search Inputs -->
-          <div class="pt-3 flex flex-col sm:flex-row gap-2.5">
-            <div class="relative flex-1">
-              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400"></i>
-              <input id="search-input" onkeyup="filterLocations()" type="text" placeholder="Search location, mall, or station..." class="w-full pl-10 pr-4 py-3 rounded-xl bg-white text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <select id="vehicle-type-filter" onchange="filterLocations()" class="px-4 py-3 rounded-xl bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="ALL">All Vehicle Types</option>
-              <option value="CAR">Car Parking</option>
-              <option value="BIKE">Two-Wheeler</option>
-              <option value="EV">Electric Vehicle (EV)</option>
-            </select>
-          </div>
-        </div>
-        
-        <!-- Subtle Background Deco -->
-        <div class="absolute -right-10 -bottom-10 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      </div>
+  const dismissToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
-      <!-- Main Layout: Locations List & Slot Picker -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Left: Parking Locations Cards (5 Cols) -->
-        <div class="lg:col-span-5 space-y-4">
-          <div class="flex items-center justify-between">
-            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-              <i class="fa-solid fa-location-dot text-indigo-600"></i> Nearby Parking Lots
-            </h2>
-            <span id="locations-count" class="text-xs font-semibold px-2.5 py-1 bg-slate-200/60 text-slate-600 rounded-full">Loading...</span>
-          </div>
-          
-          <div id="locations-list" class="space-y-3 max-h-[720px] overflow-y-auto pr-1">
-            <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
-              <i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500 mb-2"></i>
-              <p class="text-sm">Fetching live parking lots...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: Visual Parking Slot Selector Matrix (7 Cols) -->
-        <div class="lg:col-span-7">
-          <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-5">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-              <div>
-                <h3 id="selected-loc-name" class="font-bold text-slate-800 text-lg">Select a Parking Lot</h3>
-                <p id="selected-loc-desc" class="text-xs text-slate-400">Click any location on the left to view available slots</p>
-              </div>
-              <!-- Slot Status Legend -->
-              <div class="flex items-center gap-3 text-xs">
-                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Available</span>
-                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500"></span> Occupied</span>
-                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-400"></span> Maintenance</span>
-              </div>
-            </div>
-
-            <!-- Visual Slot Grid -->
-            <div id="slots-container" class="min-h-[300px] flex items-center justify-center">
-              <div class="text-center text-slate-400 py-12">
-                <i class="fa-solid fa-hand-pointer text-3xl text-indigo-300 mb-3 animate-bounce"></i>
-                <p class="text-sm">Choose a parking lot from the left to load its slot map</p>
-              </div>
-            </div>
-
-            <!-- Booking Prompt Box (Visible when slot is clicked) -->
-            <div id="selected-slot-box" class="hidden p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
-              <div>
-                <p class="text-xs text-indigo-600 font-semibold uppercase tracking-wider">Ready to Reserve</p>
-                <h4 id="selected-slot-title" class="text-sm font-bold text-slate-800">Slot A01 (Car)</h4>
-              </div>
-              <button onclick="openBookingModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-200 transition">
-                Proceed to Book <i class="fa-solid fa-arrow-right ml-1"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-    <!-- ======================================================== -->
-    <!-- TAB 2: MY BOOKINGS & DIGITAL QR PASSES -->
-    <!-- ======================================================== -->
-    <section id="tab-bookings" class="hidden space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">My Passes & Bookings</h2>
-          <p class="text-xs text-slate-500">View current tickets, download QR entry codes, and review booking history</p>
-        </div>
-        <button onclick="loadUserBookings()" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 hover:bg-slate-100 transition">
-          <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
-        </button>
-      </div>
-
-      <div id="bookings-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div class="col-span-full py-16 text-center text-slate-400">
-          <i class="fa-solid fa-ticket text-4xl text-slate-300 mb-3"></i>
-          <p class="text-sm">Sign in to view your bookings and digital passes</p>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- ======================================================== -->
-    <!-- TAB 3: MANAGER DASHBOARD & GATE QR SCANNER -->
-    <!-- ======================================================== -->
-    <section id="tab-manager" class="hidden space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">Manager Command Center</h2>
-          <p class="text-xs text-slate-500">Manage real-time gate entry/exit, toggle slot status, and track revenue</p>
-        </div>
-        <!-- Trigger Auto-release -->
-        <button onclick="triggerAutoRelease()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition flex items-center gap-2">
-          <i class="fa-solid fa-clock-rotate-left"></i> Run Auto-Release Expired Slots
-        </button>
-      </div>
-
-      <!-- Quick Stats Row -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Location Revenue</span>
-          <h3 id="mgr-revenue" class="text-2xl font-extrabold text-indigo-600 mt-1">₹0.00</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Occupancy Rate</span>
-          <h3 id="mgr-occupancy" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Available Slots</span>
-          <h3 id="mgr-available" class="text-2xl font-extrabold text-slate-800 mt-1">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Occupied Slots</span>
-          <h3 id="mgr-active" class="text-2xl font-extrabold text-amber-500 mt-1">0</h3>
-        </div>
-      </div>
-
-      <!-- Split: QR Code Gate Scanner & Slots Control -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Gate QR Scanner Simulator (5 Cols) -->
-        <div class="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-              <i class="fa-solid fa-qrcode text-indigo-600"></i> Gate Entry/Exit Scanner
-            </h3>
-            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Scanner Online</span>
-          </div>
-
-          <p class="text-xs text-slate-500">Scan digital QR ticket from driver's mobile pass to automatically open gate and update slot occupancy.</p>
-
-          <div class="space-y-3 pt-2">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Booking ID or QR Pass Code</label>
-              <div class="flex gap-2">
-                <input id="scan-booking-id" type="number" placeholder="Enter Booking ID (e.g., 1)" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button onclick="scanTicket('AUTO')" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition">
-                  <i class="fa-solid fa-barcode mr-1"></i> Scan
-                </button>
-              </div>
-            </div>
-
-            <div class="flex gap-2 text-xs">
-              <button onclick="scanTicket('CHECK_IN')" class="flex-1 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg border border-emerald-200 transition">
-                <i class="fa-solid fa-right-to-bracket mr-1"></i> Force Check-In
-              </button>
-              <button onclick="scanTicket('CHECK_OUT')" class="flex-1 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-lg border border-amber-200 transition">
-                <i class="fa-solid fa-right-from-bracket mr-1"></i> Force Check-Out
-              </button>
-            </div>
-
-            <!-- Scan Response Result Alert -->
-            <div id="scan-result" class="hidden p-4 rounded-xl text-xs"></div>
-          </div>
-        </div>
-
-        <!-- Manager Slot Management Switcher (7 Cols) -->
-        <div class="lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 class="font-bold text-slate-800 text-base">Quick Slot Status Switcher</h3>
-            <span class="text-xs text-slate-400">Click to switch Maintenance / Available</span>
-          </div>
-
-          <div id="mgr-slots-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-80 overflow-y-auto">
-            <!-- Manager slots populated dynamically -->
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-    <!-- ======================================================== -->
-    <!-- TAB 4: ADMIN PANEL -->
-    <!-- ======================================================== -->
-    <section id="tab-admin" class="hidden space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">Platform Administration</h2>
-          <p class="text-xs text-slate-500">Manage user permissions, assign location managers, and view global revenue</p>
-        </div>
-        <button onclick="loadAdminData()" class="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 hover:bg-slate-100 transition">
-          <i class="fa-solid fa-rotate-right mr-1"></i> Refresh Data
-        </button>
-      </div>
-
-      <!-- Global Platform Metrics -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Total Users</span>
-          <h3 id="admin-users-count" class="text-2xl font-extrabold text-slate-800 mt-1">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Active Lots</span>
-          <h3 id="admin-lots-count" class="text-2xl font-extrabold text-indigo-600 mt-1">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Total Bookings</span>
-          <h3 id="admin-bookings-count" class="text-2xl font-extrabold text-emerald-600 mt-1">0</h3>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span class="text-xs font-semibold text-slate-400">Total Platform Revenue</span>
-          <h3 id="admin-revenue" class="text-2xl font-extrabold text-violet-600 mt-1">₹0.00</h3>
-        </div>
-      </div>
-
-      <!-- Assign Manager Form & Users Management Table -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Assign Manager Box (4 Cols) -->
-        <div class="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-user-gear text-indigo-600"></i> Assign Location Manager
-          </h3>
-          <div class="space-y-3 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">User ID</label>
-              <input id="assign-user-id" type="number" placeholder="Enter User ID (e.g. 2)" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Parking Location</label>
-              <select id="assign-loc-id" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <!-- Dynamically populated -->
-              </select>
-            </div>
-            <button onclick="submitAssignManager()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
-              Assign Manager
-            </button>
-          </div>
-        </div>
-
-        <!-- Users Table (8 Cols) -->
-        <div class="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-          <h3 class="font-bold text-slate-800 text-sm">Users & Role Status Management</h3>
-          <div class="overflow-x-auto max-h-80">
-            <table class="w-full text-left text-xs">
-              <thead class="text-slate-400 font-semibold border-b border-slate-100">
-                <tr>
-                  <th class="pb-2">User</th>
-                  <th class="pb-2">Email</th>
-                  <th class="pb-2">Role</th>
-                  <th class="pb-2">Status</th>
-                  <th class="pb-2 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody id="admin-users-table" class="divide-y divide-slate-100 text-slate-700">
-                <!-- Users listed dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-    <!-- ======================================================== -->
-    <!-- TAB 5: COMPLAINTS & HELP TICKETS -->
-    <!-- ======================================================== -->
-    <section id="tab-complaints" class="hidden space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">Complaints & Help Center</h2>
-          <p class="text-xs text-slate-500">Submit an issue regarding slot access, billing, or security, and track resolution</p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <!-- Submit Ticket Form (5 Cols) -->
-        <div class="lg:col-span-5 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Submit a Complaint
-          </h3>
-          <div class="space-y-3 text-xs">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Subject</label>
-              <input id="complaint-subject" type="text" placeholder="e.g. Slot was occupied by another car" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Related Booking ID (Optional)</label>
-              <input id="complaint-booking-id" type="number" placeholder="e.g. 1" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1">Description</label>
-              <textarea id="complaint-desc" rows="4" placeholder="Explain what happened..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-            </div>
-            <button onclick="submitComplaint()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
-              Submit Complaint
-            </button>
-          </div>
-        </div>
-
-        <!-- Tickets List (7 Cols) -->
-        <div class="lg:col-span-7 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 class="font-bold text-slate-800 text-sm">Recent Complaints</h3>
-            <button onclick="loadComplaints()" class="text-xs text-indigo-600 hover:underline">Refresh</button>
-          </div>
-          <div id="complaints-list" class="space-y-3 max-h-96 overflow-y-auto">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-
-
-  <!-- ======================================================== -->
-  <!-- MODAL: DIGITAL QR PASS MODAL -->
-  <!-- ======================================================== -->
-  <div id="qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'qr-modal')">
-    <div class="bg-white max-w-sm w-full rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all p-6 text-center space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-        <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">ParkSpot Digital Ticket</span>
-        <button onclick="closeModal('qr-modal')" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-      </div>
-
-      <!-- Scannable QR Code Image -->
-      <div class="p-3 bg-slate-50 rounded-2xl inline-block border border-slate-200 shadow-inner">
-        <img id="qr-modal-img" src="" alt="Digital Ticket QR Pass" class="w-48 h-48 mx-auto object-contain">
-      </div>
-
-      <div class="space-y-1">
-        <h4 id="qr-modal-loc" class="font-extrabold text-slate-800 text-base">VCET Parking</h4>
-        <p id="qr-modal-slot" class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full inline-block">Slot A01 (Car)</p>
-      </div>
-
-      <div class="bg-slate-50 p-3 rounded-xl text-left text-xs space-y-1 text-slate-600 border border-slate-100">
-        <p><span class="font-semibold text-slate-400">Driver:</span> <span id="qr-modal-user" class="font-medium text-slate-800">-</span></p>
-        <p><span class="font-semibold text-slate-400">Vehicle:</span> <span id="qr-modal-veh" class="font-medium text-slate-800">-</span></p>
-        <p><span class="font-semibold text-slate-400">Time:</span> <span id="qr-modal-time" class="font-medium text-slate-800">-</span></p>
-      </div>
-
-      <button onclick="closeModal('qr-modal')" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition">
-        Done
-      </button>
-    </div>
-  </div>
-
-
-  <!-- ======================================================== -->
-  <!-- MODAL: BOOKING DIALOG MODAL -->
-  <!-- ======================================================== -->
-  <div id="booking-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'booking-modal')">
-    <div class="bg-white max-w-md w-full rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-        <h3 class="font-bold text-slate-800 text-base">Confirm Slot Reservation</h3>
-        <button onclick="closeModal('booking-modal')" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-          <p class="text-slate-400 font-semibold">Selected Location & Slot</p>
-          <p id="modal-slot-summary" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
-          <p id="modal-slot-rate" class="text-indigo-600 font-semibold mt-0.5">₹30 / hour</p>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="font-semibold text-slate-700">Vehicle</label>
-            <button onclick="promptAddVehicle()" class="text-[10px] text-indigo-600 font-bold hover:underline">+ Add Vehicle</button>
-          </div>
-          <select id="modal-vehicle-select" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <!-- Dynamically populated based on logged-in user -->
-          </select>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Start Time</label>
-            <input id="modal-start-time" onchange="updateBookingPrice()" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">End Time</label>
-            <input id="modal-end-time" onchange="updateBookingPrice()" type="datetime-local" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-        </div>
-
-        <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs">
-          <span class="font-bold text-slate-700">Estimated Total:</span>
-          <span id="modal-total-price" class="text-base font-extrabold text-indigo-700">₹0.00</span>
-        </div>
-
-        <button onclick="submitBooking()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold rounded-xl shadow-md shadow-indigo-200 transition text-sm">
-          Confirm Reservation & Generate Pass
-        </button>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ======================================================== -->
-  <!-- MODAL: SIGN IN / REGISTER -->
-  <!-- ======================================================== -->
-  <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onclick="handleBackdropClick(event, 'auth-modal')">
-    <div class="bg-white max-w-sm w-full rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-        <h3 id="auth-modal-title" class="font-bold text-slate-800 text-base">Sign In to ParkSpot</h3>
-        <button onclick="closeModal('auth-modal')" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-      </div>
-
-      <div class="space-y-3 text-xs">
-        <div id="auth-name-container" class="hidden">
-          <label class="block font-semibold text-slate-700 mb-1">Full Name</label>
-          <input id="auth-name" type="text" placeholder="Your Name" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Email</label>
-          <input id="auth-email" type="email" placeholder="patil45@gmail.com" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Password</label>
-          <input id="auth-password" type="password" placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-
-        <button id="auth-submit-btn" onclick="submitAuth()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-100 transition text-sm">
-          Sign In
-        </button>
-
-        <p class="text-center text-slate-400 text-xs">
-          <span id="auth-toggle-msg">Don't have an account?</span>
-          <button onclick="toggleAuthMode()" class="text-indigo-600 font-semibold hover:underline ml-1" id="auth-toggle-btn">Sign Up</button>
-        </p>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ======================================================== -->
-  <!-- FRONTEND JAVASCRIPT APP LOGIC -->
-  <!-- ======================================================== -->
-  <script>
-    // State management
-    let currentUser = JSON.parse(localStorage.getItem('parkspot_user') || 'null');
-    let authToken = localStorage.getItem('parkspot_token') || '';
-    let allLocations = [];
-    let currentSlots = [];
-    let selectedLocation = null;
-    let selectedSlot = null;
-    let isRegisterMode = false;
-
-    // Initialize application on load
-    document.addEventListener('DOMContentLoaded', () => {
-      updateAuthUI();
-      loadLocations();
-      setDefaultDates();
-      if (currentUser) {
-        loadNotifications();
-        setInterval(loadNotifications, 30000);
-      }
-
-      // Close modal on Escape
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          closeModal('qr-modal');
-          closeModal('booking-modal');
-          closeModal('auth-modal');
-          document.getElementById('notif-dropdown').classList.add('hidden');
-        }
-      });
+  const toggleWishlist = (id, e) => {
+    e.stopPropagation();
+    setWishlist(prev => {
+      const next = !prev[id];
+      addToast(next ? "Saved to your saved parking spots!" : "Removed from saved parking spots.", "info");
+      return { ...prev, [id]: next };
     });
+  };
 
-    function handleBackdropClick(event, modalId) {
-      if (event.target.id === modalId) {
-        closeModal(modalId);
-      }
-    }
+  const handleBookNow = (loc) => {
+    setBookingModalLocation(loc);
+    setSelectedSlot(loc.slots[0] || "A01");
+  };
 
-    // Tab Switcher
-    function switchTab(tabId) {
-      const tabs = ['driver', 'bookings', 'manager', 'admin', 'complaints'];
-      tabs.forEach(t => {
-        const section = document.getElementById(`tab-${t}`);
-        const navBtn = document.getElementById(`nav-${t}`);
-        const mobBtn = document.getElementById(`mob-nav-${t}`);
+  const handleConfirmReservation = () => {
+    if (!bookingModalLocation) return;
+    const total = bookingModalLocation.rate * durationHours;
+    const newBk = {
+      id: `BK-${Math.floor(1000 + Math.random() * 9000)}`,
+      locationName: bookingModalLocation.name,
+      slot: selectedSlot,
+      date: search.date,
+      time: `${search.time} (${durationHours} Hours)`,
+      hours: durationHours,
+      total: total,
+      status: "ACTIVE",
+      qr: `PS-${bookingModalLocation.name.substring(0, 4).toUpperCase()}-${selectedSlot}-${Math.floor(1000 + Math.random() * 9000)}`
+    };
 
-        if (t === tabId) {
-          section?.classList.remove('hidden');
-          navBtn?.classList.add('text-indigo-600', 'bg-indigo-50', 'font-semibold');
-          navBtn?.classList.remove('text-slate-600');
-          mobBtn?.classList.add('text-indigo-600', 'font-bold');
-          mobBtn?.classList.remove('text-slate-500');
-        } else {
-          section?.classList.add('hidden');
-          navBtn?.classList.remove('text-indigo-600', 'bg-indigo-50', 'font-semibold');
-          navBtn?.classList.add('text-slate-600');
-          mobBtn?.classList.remove('text-indigo-600', 'font-bold');
-          mobBtn?.classList.add('text-slate-500');
-        }
-      });
+    setUserBookings(prev => [newBk, ...prev]);
+    setBookingModalLocation(null);
+    addToast(`Reservation confirmed for ${selectedSlot} at ${bookingModalLocation.name}!`, "success");
+    setPassesModalOpen(true);
+  };
 
-      if (tabId === 'bookings') loadUserBookings();
-      if (tabId === 'manager') loadManagerData();
-      if (tabId === 'admin') loadAdminData();
-      if (tabId === 'complaints') loadComplaints();
-    }
+  const activePinLocation = useMemo(() => {
+    return locations.find(l => l.id === activePinId) || locations[0];
+  }, [locations, activePinId]);
 
-    // Modal Helpers
-    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-
-    // ==========================================
-    // 1. DRIVER PARKING SEARCH & SLOTS
-    // ==========================================
-    async function loadLocations() {
-      try {
-        const res = await fetch('/parking');
-        const data = await res.json();
-        allLocations = data.locations || [];
-        renderLocations(allLocations);
-        populateAdminLocationsDropdown();
-        if (allLocations.length > 0) {
-          selectLocation(allLocations[0]);
-        }
-      } catch (e) {
-        console.error("Failed to load locations", e);
-      }
-    }
-
-    function populateAdminLocationsDropdown() {
-      const select = document.getElementById('assign-loc-id');
-      if (!select) return;
-      select.innerHTML = allLocations.map(l => `
-        <option value="${l.location_id}">${l.location_name} (#${l.location_id})</option>
-      `).join('');
-    }
-
-    function renderLocations(locations) {
-      const container = document.getElementById('locations-list');
-      const countLabel = document.getElementById('locations-count');
-      countLabel.innerText = `${locations.length} Available`;
-
-      if (locations.length === 0) {
-        container.innerHTML = `<div class="p-6 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">No parking lots found matching your filter.</div>`;
-        return;
-      }
-
-      container.innerHTML = locations.map(loc => `
-        <div onclick="selectLocationById(${loc.location_id})" class="p-4 rounded-2xl bg-white border ${selectedLocation?.location_id === loc.location_id ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'} shadow-sm cursor-pointer transition space-y-2">
-          <div class="flex items-start justify-between">
-            <div>
-              <h3 class="font-bold text-slate-800 text-sm">${loc.location_name}</h3>
-              <p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-location-dot text-slate-300 mr-1"></i>${loc.address}</p>
-            </div>
-            <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-              ₹${loc.base_price}/hr
-            </span>
+  return (
+    <div className="min-h-screen bg-[#F5F0E8] text-[#1A1815] flex flex-col">
+      {/* 1. Header */}
+      <header className="bg-[#0f1d22] text-white border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="cursor-pointer" onClick={() => { setActivePinId(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+            <span className="text-2xl sm:text-3xl font-serif font-normal tracking-tight text-white">ParkSpot</span>
           </div>
 
-          <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-50 text-slate-500">
-            <span>Capacity: <strong class="text-slate-700">${loc.capacity}</strong> slots</span>
-            <span class="text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i>Active</span>
-          </div>
-        </div>
-      `).join('');
-    }
+          <nav className="hidden md:flex items-center gap-9 text-xs sm:text-sm text-slate-300 font-normal">
+            <button onClick={() => window.scrollTo({ top: 480, behavior: 'smooth' })} className="hover:text-white transition">Find Parking</button>
+            <button onClick={() => window.scrollTo({ top: 360, behavior: 'smooth' })} className="hover:text-white transition">How it Works</button>
+            <button onClick={() => addToast("Parking owners portal: List your space and earn ₹15,000/mo.", "info")} className="hover:text-white transition">For Owners</button>
+            <button onClick={() => addToast("ParkSpot is India's premier contactless smart parking network.", "info")} className="hover:text-white transition">About</button>
+          </nav>
 
-    function filterLocations() {
-      const q = document.getElementById('search-input').value.toLowerCase();
-      const filtered = allLocations.filter(loc => 
-        loc.location_name.toLowerCase().includes(q) || 
-        loc.address.toLowerCase().includes(q)
-      );
-      renderLocations(filtered);
-    }
-
-    function selectLocationById(id) {
-      const loc = allLocations.find(l => l.location_id === id);
-      if (loc) selectLocation(loc);
-    }
-
-    async function selectLocation(loc) {
-      selectedLocation = loc;
-      renderLocations(allLocations);
-      document.getElementById('selected-loc-name').innerText = loc.location_name;
-      document.getElementById('selected-loc-desc').innerText = `${loc.address} • Rate: ₹${loc.base_price}/hr`;
-      document.getElementById('selected-slot-box').classList.add('hidden');
-      selectedSlot = null;
-
-      const container = document.getElementById('slots-container');
-      container.innerHTML = `<div class="py-12 text-center text-slate-400"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-indigo-500 mb-2"></i><p class="text-xs">Loading slot layout...</p></div>`;
-
-      try {
-        const res = await fetch(`/parking/${loc.location_id}/slots`);
-        const data = await res.json();
-        currentSlots = data.slots || [];
-        renderSlots(currentSlots);
-      } catch (e) {
-        container.innerHTML = `<div class="text-xs text-rose-500 py-8 text-center">Failed to load slots</div>`;
-      }
-    }
-
-    function renderSlots(slots) {
-      const container = document.getElementById('slots-container');
-      if (slots.length === 0) {
-        container.innerHTML = `<div class="py-12 text-center text-slate-400 text-xs">No slots registered for this lot yet.</div>`;
-        return;
-      }
-
-      container.innerHTML = `
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 w-full">
-          ${slots.map(s => {
-            let color = 'bg-emerald-500 text-white hover:ring-2 hover:ring-emerald-300';
-            let icon = 'fa-car';
-            if (s.slot_type === 'BIKE') icon = 'fa-motorcycle';
-            if (s.slot_type === 'EV') icon = 'fa-charging-station';
-            if (s.slot_type === 'HANDICAPPED') icon = 'fa-wheelchair';
-
-            if (s.status === 'OCCUPIED') color = 'bg-rose-500 text-white opacity-80 cursor-not-allowed';
-            if (s.status === 'MAINTENANCE') color = 'bg-amber-400 text-slate-800 opacity-80 cursor-not-allowed';
-
-            return `
-              <button onclick="pickSlotById(${s.slot_id})" 
-                ${s.status !== 'AVAILABLE' ? 'disabled' : ''}
-                class="p-3.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition shadow-sm ${color} ${selectedSlot?.slot_id === s.slot_id ? 'ring-4 ring-indigo-600 scale-105' : ''}">
-                <i class="fa-solid ${icon} text-lg"></i>
-                <span class="font-extrabold text-xs tracking-wider">${s.slot_number}</span>
-                <span class="text-[9px] uppercase tracking-wider opacity-90">${s.slot_type}</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
-      `;
-    }
-
-    function pickSlotById(slotId) {
-      const slot = currentSlots.find(s => s.slot_id === slotId);
-      if (!slot) return;
-      selectedSlot = slot;
-      renderSlots(currentSlots);
-      const box = document.getElementById('selected-slot-box');
-      box.classList.remove('hidden');
-      document.getElementById('selected-slot-title').innerText = `Slot ${slot.slot_number} (${slot.slot_type}) - ₹${selectedLocation.base_price}/hr`;
-    }
-
-    async function openBookingModal() {
-      if (!currentUser) {
-        openAuthModal();
-        return;
-      }
-      if (!selectedSlot || !selectedLocation) return;
-      document.getElementById('modal-slot-summary').innerText = `${selectedLocation.location_name} • Slot ${selectedSlot.slot_number} (${selectedSlot.slot_type})`;
-      document.getElementById('modal-slot-rate').innerText = `Rate: ₹${selectedLocation.base_price}/hr`;
-      
-      await loadUserVehicles();
-      updateBookingPrice();
-      openModal('booking-modal');
-    }
-
-    async function loadUserVehicles() {
-      const select = document.getElementById('modal-vehicle-select');
-      try {
-        const res = await fetch(`/users/${currentUser.user_id}/vehicles`);
-        const data = await res.json();
-        const vehicles = data.vehicles || [];
-
-        if (vehicles.length > 0) {
-          select.innerHTML = vehicles.map(v => `
-            <option value="${v.vehicle_id}">${v.vehicle_number} (${v.vehicle_model || v.vehicle_type})</option>
-          `).join('');
-        } else {
-          select.innerHTML = `<option value="1">Default Vehicle (MH48AB1234)</option>`;
-        }
-      } catch (e) {
-        select.innerHTML = `<option value="1">Default Vehicle (MH48AB1234)</option>`;
-      }
-    }
-
-    async function promptAddVehicle() {
-      if (!currentUser) return;
-      const vNum = prompt("Enter your Vehicle Registration Number (e.g. MH04XY9999):");
-      if (!vNum) return;
-      const vModel = prompt("Enter Vehicle Model (e.g. Honda City):") || "Car";
-
-      try {
-        const res = await fetch(`/users/${currentUser.user_id}/vehicles`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            vehicle_number: vNum.toUpperCase(),
-            vehicle_type: 'CAR',
-            vehicle_model: vModel
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail);
-        alert("Vehicle added successfully!");
-        loadUserVehicles();
-      } catch (err) {
-        alert("Could not add vehicle: " + err.message);
-      }
-    }
-
-    function setDefaultDates() {
-      const now = new Date();
-      const later = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-      document.getElementById('modal-start-time').value = toLocalISOString(now);
-      document.getElementById('modal-end-time').value = toLocalISOString(later);
-    }
-
-    function toLocalISOString(d) {
-      const pad = n => n.toString().padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-
-    function updateBookingPrice() {
-      const startVal = document.getElementById('modal-start-time').value;
-      const endVal = document.getElementById('modal-end-time').value;
-      const totalLabel = document.getElementById('modal-total-price');
-      if (!startVal || !endVal || !selectedLocation) return;
-
-      const start = new Date(startVal);
-      const end = new Date(endVal);
-      const diffMs = end - start;
-
-      if (diffMs <= 0) {
-        totalLabel.innerText = "Invalid Dates";
-        return;
-      }
-
-      const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
-      const total = hours * parseFloat(selectedLocation.base_price || 30);
-      totalLabel.innerText = `₹${total.toFixed(2)} (${hours} hr${hours > 1 ? 's' : ''})`;
-    }
-
-    async function submitBooking() {
-      if (!currentUser) { openAuthModal(); return; }
-      const startVal = document.getElementById('modal-start-time').value;
-      const endVal = document.getElementById('modal-end-time').value;
-
-      if (!startVal || !endVal) {
-        alert("Please select both start and end times");
-        return;
-      }
-
-      const startDate = new Date(startVal);
-      const endDate = new Date(endVal);
-      if (endDate <= startDate) {
-        alert("End time must be after start time");
-        return;
-      }
-
-      const formatSQL = d => {
-        const pad = n => n.toString().padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-      };
-
-      const start = formatSQL(startDate);
-      const end = formatSQL(endDate);
-      const vehicleId = parseInt(document.getElementById('modal-vehicle-select').value) || 1;
-
-      try {
-        const res = await fetch('/bookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: currentUser.user_id,
-            vehicle_id: vehicleId,
-            slot_id: selectedSlot.slot_id,
-            start_time: start,
-            end_time: end
-          })
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Booking failed");
-
-        closeModal('booking-modal');
-        alert(`Booking Confirmed! Booking ID: #${data.booking_id}`);
-        selectLocation(selectedLocation);
-        viewQRPass(data.booking_id);
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    // ==========================================
-    // 2. MY PASSES & QR CODES
-    // ==========================================
-    async function loadUserBookings() {
-      if (!currentUser) {
-        document.getElementById('bookings-list').innerHTML = `
-          <div class="col-span-full py-16 text-center text-slate-400">
-            <i class="fa-solid fa-lock text-3xl mb-2 text-indigo-300"></i>
-            <p class="text-sm">Please sign in to view your bookings and digital parking passes.</p>
-          </div>
-        `;
-        return;
-      }
-
-      try {
-        const res = await fetch(`/users/${currentUser.user_id}/bookings`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        const data = await res.json();
-        const bookings = data.bookings || [];
-        const container = document.getElementById('bookings-list');
-
-        if (bookings.length === 0) {
-          container.innerHTML = `<div class="col-span-full py-16 text-center text-slate-400 text-sm">You haven't made any bookings yet. Book a slot from Find Parking!</div>`;
-          return;
-        }
-
-        container.innerHTML = bookings.map(b => {
-          let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-          if (b.booking_status === 'COMPLETED') badgeColor = 'bg-slate-100 text-slate-600 border-slate-200';
-          if (b.booking_status === 'CANCELLED') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
-
-          return `
-            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-              <div class="flex items-start justify-between">
-                <div>
-                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Booking #${b.booking_id}</span>
-                  <h4 class="font-bold text-slate-800 text-base">${b.location_name}</h4>
-                  <p class="text-xs text-slate-400">Slot <strong>${b.slot_number}</strong> • ${b.vehicle_number}</p>
-                </div>
-                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeColor}">
-                  ${b.booking_status}
-                </span>
-              </div>
-
-              <div class="bg-slate-50 p-2.5 rounded-xl text-xs text-slate-600 space-y-1">
-                <p><span class="text-slate-400">From:</span> ${b.start_time}</p>
-                <p><span class="text-slate-400">Until:</span> ${b.end_time}</p>
-              </div>
-
-              <div class="flex items-center justify-between pt-1">
-                <span class="text-sm font-extrabold text-indigo-700">₹${b.total_amount}</span>
-                <button onclick="viewQRPass(${b.booking_id})" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition">
-                  <i class="fa-solid fa-qrcode mr-1"></i> Show Pass
-                </button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } catch (e) {
-        console.error("Failed to load user bookings", e);
-      }
-    }
-
-    async function viewQRPass(bookingId) {
-      try {
-        const res = await fetch(`/bookings/${bookingId}/qr-pass`);
-        const data = await res.json();
-        const b = data.booking;
-
-        document.getElementById('qr-modal-img').src = data.qr_code_base64;
-        document.getElementById('qr-modal-loc').innerText = b.location_name;
-        document.getElementById('qr-modal-slot').innerText = `Slot ${b.slot_number} (${b.slot_type})`;
-        document.getElementById('qr-modal-user').innerText = b.user_name;
-        document.getElementById('qr-modal-veh').innerText = `${b.vehicle_number} (${b.vehicle_type})`;
-        document.getElementById('qr-modal-time').innerText = `${b.start_time} - ${b.end_time}`;
-
-        openModal('qr-modal');
-      } catch (e) {
-        alert("Failed to load digital QR pass: " + e.message);
-      }
-    }
-
-    // ==========================================
-    // 3. MANAGER HUB & GATE SCANNER
-    // ==========================================
-    async function loadManagerData() {
-      const mgrId = (currentUser && currentUser.role_id >= 2) ? currentUser.user_id : 2;
-      try {
-        const res = await fetch(`/manager/${mgrId}/parking/slots`);
-        const data = await res.json();
-        const slots = data.slots || [];
-
-        // Real-time statistics
-        let avail = slots.filter(s => s.status === 'AVAILABLE').length;
-        let occupied = slots.filter(s => s.status === 'OCCUPIED').length;
-        let total = slots.length;
-        let occPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
-
-        document.getElementById('mgr-available').innerText = avail;
-        document.getElementById('mgr-active').innerText = occupied;
-        document.getElementById('mgr-occupancy').innerText = `${occPct}%`;
-
-        // Fetch actual revenue for manager location
-        try {
-          const revRes = await fetch(`/manager/${mgrId}/revenue`);
-          const revData = await revRes.json();
-          document.getElementById('mgr-revenue').innerText = `₹${revData.total_revenue || '0.00'}`;
-        } catch (_) {
-          document.getElementById('mgr-revenue').innerText = "₹60.00";
-        }
-
-        // Render Slots
-        const container = document.getElementById('mgr-slots-list');
-        container.innerHTML = slots.map(s => `
-          <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
-            <div>
-              <p class="font-bold text-slate-800">${s.slot_number}</p>
-              <span class="text-[10px] ${s.status === 'AVAILABLE' ? 'text-emerald-600' : (s.status === 'OCCUPIED' ? 'text-rose-600' : 'text-amber-600')} font-semibold">${s.status}</span>
-            </div>
-            <button onclick="toggleSlotStatus(${s.slot_id}, '${s.status}')" class="px-2 py-1 text-[10px] font-semibold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg shadow-xs">
-              Toggle
-            </button>
-          </div>
-        `).join('');
-      } catch (e) {
-        console.error("Manager hub error", e);
-      }
-    }
-
-    async function toggleSlotStatus(slotId, currentStatus) {
-      const nextStatus = currentStatus === 'AVAILABLE' ? 'MAINTENANCE' : 'AVAILABLE';
-      try {
-        await fetch(`/parking/slots/${slotId}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus })
-        });
-        loadManagerData();
-        if (selectedLocation) selectLocation(selectedLocation);
-      } catch (e) {
-        alert("Failed to toggle slot status");
-      }
-    }
-
-    async function scanTicket(action) {
-      const input = document.getElementById('scan-booking-id');
-      const bId = parseInt(input.value);
-      if (!bId) { alert("Please enter a valid Booking ID"); return; }
-
-      const resultBox = document.getElementById('scan-result');
-      resultBox.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'bg-rose-50', 'text-rose-800', 'bg-amber-50', 'text-amber-800');
-
-      try {
-        const res = await fetch('/manager/scan-qr', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_id: bId, action: action })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Scan failed");
-
-        resultBox.classList.add('bg-emerald-50', 'text-emerald-800', 'border', 'border-emerald-200');
-        resultBox.innerHTML = `<strong><i class="fa-solid fa-circle-check mr-1"></i> ${data.status}</strong>: ${data.message}`;
-        loadManagerData();
-      } catch (err) {
-        resultBox.classList.add('bg-rose-50', 'text-rose-800', 'border', 'border-rose-200');
-        resultBox.innerHTML = `<strong><i class="fa-solid fa-circle-xmark mr-1"></i> Scan Denied</strong>: ${err.message}`;
-      }
-    }
-
-    async function triggerAutoRelease() {
-      try {
-        const res = await fetch('/system/auto-release-slots', { method: 'POST' });
-        const data = await res.json();
-        alert(data.message);
-        loadManagerData();
-        if (selectedLocation) selectLocation(selectedLocation);
-      } catch (e) {
-        alert("Failed to run auto-release");
-      }
-    }
-
-    // ==========================================
-    // 4. ADMIN PANEL DATA
-    // ==========================================
-    async function loadAdminData() {
-      try {
-        const revRes = await fetch('/admin/platform-revenue');
-        const revData = await revRes.json();
-        const m = revData.platform_metrics || {};
-
-        document.getElementById('admin-users-count').innerText = m.total_users || 0;
-        document.getElementById('admin-lots-count').innerText = m.active_locations || 0;
-        document.getElementById('admin-bookings-count').innerText = m.total_bookings || 0;
-        document.getElementById('admin-revenue').innerText = `₹${m.total_revenue || 0}`;
-
-        const usersRes = await fetch('/admin/users');
-        const usersData = await usersRes.json();
-        const users = usersData.users || [];
-
-        const table = document.getElementById('admin-users-table');
-        table.innerHTML = users.map(u => `
-          <tr class="hover:bg-slate-50/50">
-            <td class="py-2.5 font-bold">${u.name}</td>
-            <td class="py-2.5 text-slate-500">${u.email}</td>
-            <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700">${u.role_name}</span></td>
-            <td class="py-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.account_status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">${u.account_status}</span></td>
-            <td class="py-2.5 text-right">
-              <button onclick="toggleUserStatus(${u.user_id}, '${u.account_status}')" class="px-2 py-1 text-[10px] rounded border border-slate-200 hover:bg-slate-100 font-semibold">
-                ${u.account_status === 'ACTIVE' ? 'Block' : 'Activate'}
-              </button>
-            </td>
-          </tr>
-        `).join('');
-      } catch (e) {
-        console.error("Admin data load error", e);
-      }
-    }
-
-    async function toggleUserStatus(userId, currentStatus) {
-      const next = currentStatus === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
-      try {
-        await fetch(`/admin/users/${userId}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account_status: next })
-        });
-        loadAdminData();
-      } catch (e) {
-        alert("Failed to update user status");
-      }
-    }
-
-    async function submitAssignManager() {
-      const uid = parseInt(document.getElementById('assign-user-id').value);
-      const lid = parseInt(document.getElementById('assign-loc-id').value);
-      if (!uid) { alert("Please enter a User ID"); return; }
-
-      try {
-        const res = await fetch('/admin/managers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: uid, location_id: lid })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail);
-        alert(data.message);
-        loadAdminData();
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    // ==========================================
-    // 5. COMPLAINTS & TICKETS
-    // ==========================================
-    async function loadComplaints() {
-      try {
-        const res = await fetch('/complaints');
-        const data = await res.json();
-        const complaints = data.complaints || [];
-        const container = document.getElementById('complaints-list');
-
-        if (complaints.length === 0) {
-          container.innerHTML = `<div class="py-8 text-center text-slate-400 text-xs">No complaints logged yet.</div>`;
-          return;
-        }
-
-        container.innerHTML = complaints.map(c => `
-          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
-            <div class="flex items-start justify-between">
-              <div>
-                <h4 class="font-bold text-slate-800">${c.subject}</h4>
-                <p class="text-[11px] text-slate-400">By ${c.user_name} (${c.user_email}) • ${c.created_at}</p>
-              </div>
-              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-                ${c.status}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setPassesModalOpen(true)}
+              className="text-xs text-slate-300 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/5 transition">
+              <i className="fa-solid fa-ticket text-xs"></i>
+              <span className="hidden sm:inline">My Passes</span>
+              <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">
+                {userBookings.length}
               </span>
-            </div>
-            <p class="text-slate-600 bg-white p-2.5 rounded-xl border border-slate-100">${c.description}</p>
-            ${c.status !== 'RESOLVED' ? `
-              <div class="text-right">
-                <button onclick="resolveComplaint(${c.complaint_id})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] transition">
-                  Mark Resolved
-                </button>
-              </div>
-            ` : ''}
-          </div>
-        `).join('');
-      } catch (e) {
-        console.error("Load complaints failed", e);
-      }
-    }
+            </button>
 
-    async function submitComplaint() {
-      if (!currentUser) { openAuthModal(); return; }
-      const subject = document.getElementById('complaint-subject').value;
-      const bId = parseInt(document.getElementById('complaint-booking-id').value) || null;
-      const desc = document.getElementById('complaint-desc').value;
-
-      if (!subject || !desc) { alert("Please provide both subject and description"); return; }
-
-      try {
-        const res = await fetch('/complaints', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: currentUser.user_id,
-            booking_id: bId,
-            subject: subject,
-            description: desc
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail);
-        alert(data.message);
-        document.getElementById('complaint-subject').value = '';
-        document.getElementById('complaint-desc').value = '';
-        loadComplaints();
-        loadNotifications();
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    async function resolveComplaint(id) {
-      try {
-        await fetch(`/complaints/${id}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'RESOLVED' })
-        });
-        loadComplaints();
-      } catch (e) {
-        alert("Failed to resolve complaint");
-      }
-    }
-
-    // ==========================================
-    // 6. NOTIFICATIONS DRAWER
-    // ==========================================
-    async function loadNotifications() {
-      if (!currentUser) return;
-      try {
-        const res = await fetch(`/users/${currentUser.user_id}/notifications`);
-        const data = await res.json();
-        const list = data.notifications || [];
-        const badge = document.getElementById('notif-badge');
-        const container = document.getElementById('notif-list');
-
-        if (data.unread_count > 0) {
-          badge.classList.remove('hidden');
-        } else {
-          badge.classList.add('hidden');
-        }
-
-        if (list.length === 0) {
-          container.innerHTML = `<p class="text-slate-400 text-center py-4">No notifications yet</p>`;
-          return;
-        }
-
-        container.innerHTML = list.map(n => `
-          <div class="p-2.5 rounded-xl border ${n.is_read ? 'bg-white border-slate-100 text-slate-500' : 'bg-indigo-50/60 border-indigo-100 text-slate-800 font-medium'} space-y-0.5">
-            <h5 class="font-bold text-slate-800">${n.title}</h5>
-            <p class="text-[11px] leading-relaxed">${n.message}</p>
-            <span class="text-[9px] text-slate-400 block pt-0.5">${n.created_at}</span>
-          </div>
-        `).join('');
-      } catch (e) {
-        console.error("Notifications fetch error", e);
-      }
-    }
-
-    function toggleNotifications() {
-      const dropdown = document.getElementById('notif-dropdown');
-      dropdown.classList.toggle('hidden');
-      if (!dropdown.classList.contains('hidden')) {
-        loadNotifications();
-      }
-    }
-
-    async function markAllNotificationsRead() {
-      if (!currentUser) return;
-      try {
-        await fetch(`/users/${currentUser.user_id}/notifications/read-all`, { method: 'PATCH' });
-        loadNotifications();
-      } catch (e) {}
-    }
-
-    // ==========================================
-    // 7. USER AUTH MODAL & STATE
-    // ==========================================
-    function updateAuthUI() {
-      const section = document.getElementById('auth-section');
-      if (currentUser) {
-        section.innerHTML = `
-          <div class="flex items-center gap-2">
-            <div class="text-right hidden sm:block">
-              <span class="block text-xs font-bold text-slate-800 leading-tight">${currentUser.name}</span>
-              <span class="block text-[10px] text-indigo-600 font-semibold uppercase">${currentUser.role_id === 3 ? 'Admin' : (currentUser.role_id === 2 ? 'Manager' : 'Driver')}</span>
-            </div>
-            <button onclick="signOut()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="Sign Out">
-              <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+            <button 
+              onClick={() => setAuthModalOpen(true)}
+              className="btn-outline-white px-5 py-2 text-xs sm:text-sm font-medium">
+              Sign in
             </button>
           </div>
-        `;
-      } else {
-        section.innerHTML = `
-          <button onclick="openAuthModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-100 transition flex items-center gap-1.5">
-            <i class="fa-solid fa-user text-xs"></i> Sign In
+        </div>
+      </header>
+
+      {/* 2. Hero Section */}
+      <section className="bg-[#0f1d22] text-white relative overflow-hidden pt-10 pb-16 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-12 gap-8 items-center min-h-[460px]">
+          <div className="lg:col-span-6 z-10 space-y-4">
+            <div className="flex items-center gap-3 text-xs tracking-[0.2em] font-medium text-slate-400 uppercase">
+              <span>PARK</span>
+              <span>•</span>
+              <span>BOOK</span>
+              <span>•</span>
+              <span>DRIVE</span>
+              <div className="h-0.5 w-12 bg-slate-700 ml-1"></div>
+            </div>
+
+            <h1 className="text-4xl sm:text-6xl font-serif font-normal text-white leading-[1.12] tracking-tight">
+              Find your perfect<br />parking spot.
+            </h1>
+
+            <p className="text-sm sm:text-base text-slate-300 max-w-md font-light leading-relaxed">
+              Discover, compare and book secure parking spaces near your destination.
+            </p>
+          </div>
+
+          <div className="lg:col-span-6 relative h-[360px] sm:h-[420px] w-full rounded-2xl overflow-hidden bg-[#122329]">
+            <svg className="w-full h-full absolute inset-0 opacity-80" preserveAspectRatio="none" viewBox="0 0 100 100">
+              <path d="M 85,0 Q 82,30 92,60 L 100,70 L 100,0 Z" fill="#18363f" opacity="0.9" />
+              <path d="M 0,0 L 0,35 Q 20,40 10,75 L 0,85 Z" fill="#18363f" opacity="0.5" />
+              <line x1="0" y1="28" x2="100" y2="28" stroke="#22404b" strokeWidth="2" />
+              <line x1="0" y1="58" x2="100" y2="58" stroke="#22404b" strokeWidth="2.5" />
+              <line x1="45" y1="0" x2="45" y2="100" stroke="#22404b" strokeWidth="2.5" />
+              <line x1="75" y1="0" x2="75" y2="100" stroke="#22404b" strokeWidth="2" />
+            </svg>
+
+            {locations.map(loc => {
+              const isActive = activePinId === loc.id;
+              return (
+                <button 
+                  key={loc.id}
+                  onClick={() => setActivePinId(loc.id)}
+                  style={{ left: `${loc.coordinates.x}%`, top: `${loc.coordinates.y}%` }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transition-all z-20 ${
+                    isActive
+                      ? "w-8 h-8 bg-[#1f3f39] border-2 border-emerald-400 text-emerald-300 shadow-xl map-pulse-active"
+                      : "w-7 h-7 bg-[#172b32] border border-white/40 text-slate-300 hover:border-white hover:scale-110"
+                  }`}>
+                  <span className="text-[11px] font-bold font-mono">P</span>
+                </button>
+              );
+            })}
+
+            {activePinLocation && (
+              <div 
+                style={{
+                  top: `${Math.max(15, activePinLocation.coordinates.y - 12)}%`, 
+                  left: `${Math.min(70, Math.max(30, activePinLocation.coordinates.x))}%`
+                }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-30 bg-white text-[#1A1815] rounded-2xl p-3 shadow-2xl border border-white/40 w-64 sm:w-72 animate-fade-up">
+                <div className="flex gap-3">
+                  <img 
+                    src={activePinLocation.image} 
+                    alt={activePinLocation.name}
+                    className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-xs font-bold text-[#1A1815] truncate">{activePinLocation.name}</h4>
+                      <button onClick={(e) => { e.stopPropagation(); setActivePinId(activePinLocation.id === 1 ? 2 : 1); }} className="text-slate-400 hover:text-black text-xs">
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                      <i className="fa-solid fa-location-dot text-[9px]"></i> {activePinLocation.location}
+                    </p>
+                    <p className="text-sm font-bold text-[#1A1815] mt-1.5">₹{activePinLocation.rate} <span className="text-[10px] text-slate-500 font-normal">/ hour</span></p>
+                    <button 
+                      onClick={() => handleBookNow(activePinLocation)}
+                      className="btn-teal mt-1.5 w-full py-1.5 text-[11px]">
+                      Book Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Floating Search Bar */}
+        <div className="max-w-7xl mx-auto px-6 mt-6">
+          <div className="bg-white text-[#1A1815] rounded-2xl p-3 sm:p-3.5 shadow-2xl border border-white/60 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 max-w-4xl">
+            <div className="flex items-center gap-3 px-3 py-2 flex-1 border-b md:border-b-0 md:border-r border-slate-200">
+              <i className="fa-solid fa-location-dot text-slate-400 text-sm"></i>
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Location</p>
+                <input 
+                  type="text" 
+                  value={search.location} 
+                  onChange={e => setSearch(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="e.g. Bandra, Mumbai"
+                  className="w-full text-xs font-semibold text-[#1A1815] focus:outline-none bg-transparent"
+                />
+              </div>
+              <i className="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </div>
+
+            <div className="flex items-center gap-3 px-3 py-2 flex-1 border-b md:border-b-0 md:border-r border-slate-200">
+              <i className="fa-regular fa-calendar text-slate-400 text-sm"></i>
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</p>
+                <input 
+                  type="text" 
+                  value={search.date} 
+                  onChange={e => setSearch(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full text-xs font-semibold text-[#1A1815] focus:outline-none bg-transparent"
+                />
+              </div>
+              <i className="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </div>
+
+            <div className="flex items-center gap-3 px-3 py-2 flex-1">
+              <i className="fa-regular fa-clock text-slate-400 text-sm"></i>
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Time</p>
+                <input 
+                  type="text" 
+                  value={search.time} 
+                  onChange={e => setSearch(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-full text-xs font-semibold text-[#1A1815] focus:outline-none bg-transparent"
+                />
+              </div>
+              <i className="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </div>
+
+            <button 
+              onClick={() => {
+                addToast(`Filtered parking spots for ${search.location} at ${search.time}`, "info");
+                window.scrollTo({ top: 480, behavior: 'smooth' });
+              }}
+              className="btn-teal px-6 py-3 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap shadow-md">
+              <i className="fa-solid fa-magnifying-glass text-xs"></i>
+              <span>Find a Spot</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Feature Pills */}
+      <section className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="feature-pill flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#E6EFE9] text-[#1C3B37] flex items-center justify-center text-lg flex-shrink-0">
+              <i className="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#1A1815]">Verified spaces</h3>
+              <p className="text-xs text-[#706A62] mt-0.5">Only trusted and verified parking locations.</p>
+            </div>
+          </div>
+
+          <div className="feature-pill flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#E6EFE9] text-[#1C3B37] flex items-center justify-center text-lg flex-shrink-0">
+              <i className="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#1A1815]">Instant booking</h3>
+              <p className="text-xs text-[#706A62] mt-0.5">Reserve your spot in seconds.</p>
+            </div>
+          </div>
+
+          <div className="feature-pill flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#E6EFE9] text-[#1C3B37] flex items-center justify-center text-lg flex-shrink-0">
+              <i className="fa-solid fa-lock"></i>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-[#1A1815]">Secure payments</h3>
+              <p className="text-xs text-[#706A62] mt-0.5">Pay safely with UPI, cards or wallets.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Popular Parking Grid */}
+      <section className="max-w-7xl mx-auto px-6 pb-20">
+        <div className="flex items-baseline justify-between mb-8">
+          <h2 className="text-3xl sm:text-4xl font-serif font-normal text-[#1A1815]">
+            Popular parking near you
+          </h2>
+          <button 
+            onClick={() => addToast("Showing all available parking facilities.", "info")}
+            className="text-xs sm:text-sm font-semibold text-[#1C3B37] hover:underline flex items-center gap-1.5">
+            <span>View all</span>
+            <i className="fa-solid fa-arrow-right text-xs"></i>
           </button>
-        `;
-      }
-    }
+        </div>
 
-    function openAuthModal() {
-      openModal('auth-modal');
-    }
+        <div className="grid md:grid-cols-3 gap-6">
+          {locations.map(loc => {
+            const isFav = wishlist[loc.id];
+            return (
+              <div 
+                key={loc.id} 
+                className="nude-card rounded-3xl overflow-hidden flex flex-col justify-between group">
+                
+                <div className="relative h-56 w-full overflow-hidden bg-slate-100">
+                  <img 
+                    src={loc.image} 
+                    alt={loc.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                  />
+                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-[#1A1815] shadow-sm flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Available</span>
+                  </div>
 
-    function toggleAuthMode() {
-      isRegisterMode = !isRegisterMode;
-      document.getElementById('auth-modal-title').innerText = isRegisterMode ? 'Create ParkSpot Account' : 'Sign In to ParkSpot';
-      document.getElementById('auth-submit-btn').innerText = isRegisterMode ? 'Sign Up' : 'Sign In';
-      document.getElementById('auth-name-container').classList.toggle('hidden', !isRegisterMode);
-      document.getElementById('auth-toggle-msg').innerText = isRegisterMode ? 'Already have an account?' : "Don't have an account?";
-      document.getElementById('auth-toggle-btn').innerText = isRegisterMode ? 'Sign In' : 'Sign Up';
-    }
+                  <button 
+                    onClick={(e) => toggleWishlist(loc.id, e)}
+                    className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-md flex items-center justify-center text-white transition">
+                    <i className={`${isFav ? "fa-solid fa-heart text-rose-500" : "fa-regular fa-heart"} text-sm`}></i>
+                  </button>
+                </div>
 
-    async function submitAuth() {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const name = document.getElementById('auth-name').value;
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-base font-bold text-[#1A1815] group-hover:text-[#1C3B37] transition">{loc.name}</h3>
+                        <p className="text-xs text-[#706A62] mt-0.5">
+                          <i className="fa-solid fa-location-dot text-[10px] mr-1"></i> {loc.location} • {loc.distance}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-[#1A1815]">₹{loc.rate}</span>
+                        <span className="text-[10px] text-[#706A62]"> / hour</span>
+                      </div>
+                    </div>
 
-      try {
-        if (isRegisterMode) {
-          const res = await fetch('/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail);
-          alert("Registration successful! Now signing in...");
-          toggleAuthMode();
-        }
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-[#706A62]">
+                      <i className="fa-solid fa-star text-amber-500 text-xs"></i>
+                      <span className="font-bold text-[#1A1815]">{loc.rating}</span>
+                      <span>({loc.reviews.toLocaleString()} reviews)</span>
+                    </div>
+                  </div>
 
-        const loginRes = await fetch('/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const loginData = await loginRes.json();
-        if (!loginRes.ok) throw new Error(loginData.detail);
+                  <div className="mt-5 pt-4 border-t border-[#F5F0E8] flex items-center justify-between">
+                    <span className="text-xs text-emerald-700 font-semibold">
+                      {loc.freeSpots} spots left
+                    </span>
+                    <button 
+                      onClick={() => handleBookNow(loc)}
+                      className="btn-teal px-6 py-2.5 text-xs">
+                      Book Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
-        currentUser = loginData.user;
-        authToken = loginData.access_token;
-        localStorage.setItem('parkspot_user', JSON.stringify(currentUser));
-        localStorage.setItem('parkspot_token', authToken);
+      {/* Booking Modal */}
+      {bookingModalLocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={() => setBookingModalLocation(null)}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#E8E1D5] shadow-2xl animate-fade-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between pb-3 border-b border-[#F5F0E8] mb-4">
+              <div>
+                <span className="text-[10px] font-bold text-[#1C3B37] uppercase tracking-wider">Reserve Parking</span>
+                <h3 className="text-lg font-bold text-[#1A1815]">{bookingModalLocation.name}</h3>
+                <p className="text-xs text-[#706A62]">{bookingModalLocation.location} • ₹{bookingModalLocation.rate}/hr</p>
+              </div>
+              <button onClick={() => setBookingModalLocation(null)} className="text-slate-400 hover:text-black text-sm">
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
 
-        updateAuthUI();
-        closeModal('auth-modal');
-        loadNotifications();
-        alert(`Welcome back, ${currentUser.name}!`);
-      } catch (err) {
-        alert("Auth Error: " + err.message);
-      }
-    }
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-[#1A1815] mb-2">Select Your Parking Bay:</label>
+              <div className="grid grid-cols-4 gap-2">
+                {bookingModalLocation.slots.map(s => (
+                  <button 
+                    key={s}
+                    onClick={() => setSelectedSlot(s)}
+                    className={`py-2 px-3 rounded-xl border text-xs font-mono font-bold transition ${
+                      selectedSlot === s
+                        ? "bg-[#1C3B37] text-white border-[#1C3B37] shadow-sm"
+                        : "bg-[#FAF7F2] text-[#1A1815] border-[#E8E1D5] hover:border-slate-400"
+                    }`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-    function signOut() {
-      currentUser = null;
-      authToken = '';
-      localStorage.removeItem('parkspot_user');
-      localStorage.removeItem('parkspot_token');
-      updateAuthUI();
-      switchTab('driver');
-    }
-  </script>
+            <div className="mb-5 bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8E1D5]">
+              <div className="flex justify-between text-xs font-semibold text-[#1A1815] mb-2">
+                <span>Parking Duration:</span>
+                <span className="font-bold text-[#1C3B37]">{durationHours} Hours</span>
+              </div>
+              <input 
+                type="range" 
+                min="1" 
+                max="10" 
+                value={durationHours} 
+                onChange={e => setDurationHours(Number(e.target.value))}
+                className="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer custom-range"
+              />
+              <div className="flex justify-between text-[10px] text-[#706A62] mt-1 font-mono">
+                <span>1h</span><span>5h</span><span>10h</span>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-[#E8E1D5] flex justify-between items-center text-xs">
+                <span className="text-[#706A62]">Total Amount:</span>
+                <span className="text-lg font-bold text-[#1A1815]">₹{bookingModalLocation.rate * durationHours}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setBookingModalLocation(null)} className="flex-1 py-2.5 rounded-xl border border-[#E8E1D5] text-xs font-semibold text-[#706A62] hover:bg-[#FAF7F2]">
+                Cancel
+              </button>
+              <button onClick={handleConfirmReservation} className="btn-teal flex-1 py-2.5 text-xs shadow-md">
+                Confirm & Pay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Passes Drawer Modal */}
+      {passesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={() => setPassesModalOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#E8E1D5] shadow-2xl animate-fade-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-[#F5F0E8] mb-4">
+              <div>
+                <h3 className="text-base font-bold text-[#1A1815]">My Active Parking Passes</h3>
+                <p className="text-xs text-[#706A62]">Show this digital pass at the boom barrier optical scanner</p>
+              </div>
+              <button onClick={() => setPassesModalOpen(false)} className="text-slate-400 hover:text-black text-sm">
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {userBookings.map(b => (
+                <div key={b.id} className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#E8E1D5] flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {b.status}
+                    </span>
+                    <h4 className="text-sm font-bold text-[#1A1815] mt-1">{b.locationName} — Slot {b.slot}</h4>
+                    <p className="text-xs text-[#706A62]">{b.time}</p>
+                    <p className="text-[11px] font-mono font-bold text-[#1C3B37] mt-1">Code: {b.qr}</p>
+                  </div>
+
+                  <div className="w-16 h-16 rounded-xl bg-white border border-[#E8E1D5] flex items-center justify-center text-3xl text-[#1A1815] shadow-xs">
+                    <i className="fa-solid fa-qrcode"></i>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign In Modal */}
+      {authModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4" onClick={() => setAuthModalOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 border border-[#E8E1D5] shadow-2xl animate-fade-up text-center" onClick={e => e.stopPropagation()}>
+            <span className="text-3xl font-serif font-bold text-[#0f1d22]">ParkSpot</span>
+            <h3 className="text-base font-bold text-[#1A1815] mt-2">Sign in to your account</h3>
+            <p className="text-xs text-[#706A62] mb-5">Access your passes, saved spaces, and vehicles</p>
+
+            <div className="space-y-3 mb-4">
+              <input type="email" defaultValue="patil45@gmail.com" placeholder="Email" className="w-full px-4 py-2.5 text-xs rounded-xl border border-[#E8E1D5] bg-[#FAF7F2]" />
+              <input type="password" defaultValue="••••••••" placeholder="Password" className="w-full px-4 py-2.5 text-xs rounded-xl border border-[#E8E1D5] bg-[#FAF7F2]" />
+            </div>
+
+            <button 
+              onClick={() => { addToast("Welcome back, Jignyasa Patil!", "success"); setAuthModalOpen(false); }}
+              className="btn-teal w-full py-2.5 text-xs font-bold transition">
+              Sign In
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
 </body>
 </html>

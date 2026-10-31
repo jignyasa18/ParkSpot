@@ -1,0 +1,187 @@
+/* ═══════════════════════════════════════════════════════════════
+   ParkSpot — Master Stylesheet (CSS)
+   Warm Nude & Alabaster Palette with Editorial Typography
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Nude / Linen Color Tokens */
+  --nude-bg: #F5F0E8;
+  --nude-card: #FFFFFF;
+  --nude-card-muted: #FAF7F2;
+  --nude-border: #E8E1D5;
+  --nude-border-hover: #D8CFBF;
+  --nude-text-dark: #1A1815;
+  --nude-text-muted: #706A62;
+  
+  /* Spruce Teal Accent Tokens */
+  --teal-dark: #0F1D22;
+  --teal-surface: #16282F;
+  --teal-primary: #1C3B37;
+  --teal-hover: #152E2B;
+  --teal-light: #E6EFE9;
+  
+  /* Status Colors */
+  --status-available-bg: #ECFDF5;
+  --status-available-text: #065F46;
+  --status-available-border: #A7F3D0;
+  --status-occupied-bg: #FEF2F2;
+  --status-occupied-text: #991B1B;
+  --status-occupied-border: #FECACA;
+}
+
+/* Base Resets */
+* {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--nude-bg);
+  color: var(--nude-text-dark);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Helpers */
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Card Styling */
+.nude-card {
+  background-color: var(--nude-card);
+  border: 1px solid var(--nude-border);
+  box-shadow: 0 1px 3px rgba(26, 24, 21, 0.04), 0 4px 12px rgba(26, 24, 21, 0.02);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.nude-card:hover {
+  border-color: var(--nude-border-hover);
+  box-shadow: 0 8px 24px rgba(26, 24, 21, 0.08);
+  transform: translateY(-2px);
+}
+
+.feature-pill {
+  background-color: var(--nude-card-muted);
+  border: 1px solid var(--nude-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.25s ease;
+}
+
+.feature-pill:hover {
+  background-color: #FFFFFF;
+  border-color: var(--nude-border-hover);
+  box-shadow: 0 4px 16px rgba(26, 24, 21, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Primary Spruce Teal Buttons */
+.btn-teal {
+  background-color: var(--teal-primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.btn-teal:hover {
+  background-color: var(--teal-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(28, 59, 55, 0.25);
+}
+
+.btn-teal:active {
+  transform: translateY(0);
+}
+
+/* Outline Buttons */
+.btn-outline-white {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.btn-outline-white:hover {
+  border-color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Pulse Animation for Map Pins */
+@keyframes pulsePin {
+  0% {
+    transform: translate(-50%, -50%) scale(0.9);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.9);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.map-pulse-active {
+  animation: pulsePin 2.2s infinite ease-in-out;
+}
+
+/* Fade Up Animation */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeSlideUp 0.28s ease-out both;
+}
+
+/* Custom Range Slider */
+.custom-range {
+  accent-color: var(--teal-primary);
+}
+
+.custom-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--teal-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(28, 59, 55, 0.35);
+  border: 2px solid #FFFFFF;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1C7B7;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B8AC98;
+}

@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.html": "html"
+  },
+  "typescript.validate.enable": true,
+  "javascript.validate.enable": true
+}
